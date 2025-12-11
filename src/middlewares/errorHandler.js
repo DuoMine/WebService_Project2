@@ -12,7 +12,7 @@ export function errorHandler(err, req, res, next) {
 
   if (err.details) body.details = err.details;
 
-  console.error("🔥 ERROR", status, code, err.stack);
+  console.error("ERROR", status, code, err.stack);
 
   res.status(status).json(body);
 }
