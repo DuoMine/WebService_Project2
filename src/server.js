@@ -9,16 +9,16 @@ import { initDb } from "./config/db.js";
 import authRouter from "./routes/auth.js"
 import usersRouter from "./routes/users.js"; 
 import booksRouter from "./routes/books.js";
-import reviewsRouter from "./src/routes/reviews.js";
-import commentsRouter from "./src/routes/comments.js";
-import favoritesRouter from "./src/routes/favorites.js";
-import ordersRouter from "./src/routes/orders.js";
-import librariesRouter from "./src/routes/libraries.js";
-import userLikesRouter from "./src/routes/userLikes.js";
-import authorsRouter from "./src/routes/authors.js";
-import categoriesRouter from "./src/routes/categories.js";
-import paymentsRouter from "./src/routes/payments.js";
-import adminUsersRouter from "./src/routes/adminUsers.js";
+import reviewsRouter from "./routes/reviews.js";
+import commentsRouter from "./routes/comments.js";
+import favoritesRouter from "./routes/favorites.js";
+import ordersRouter from "./routes/orders.js";
+import librariesRouter from "./routes/libraries.js";
+import userLikesRouter from "./routes/likes.js";
+import authorsRouter from "./routes/authors.js";
+import categoriesRouter from "./routes/categories.js";
+import paymentsRouter from "./routes/payments.js";
+import adminUsersRouter from "./routes/adminUsers.js";
 
 
 dotenv.config();

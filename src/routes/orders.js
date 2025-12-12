@@ -1,8 +1,8 @@
 // src/routes/orders.js
 import { Router } from "express";
 import { models } from "../config/db.js";
-import { requireAuth } from "../middlewares/auth.js";
-import { sendError, sendSuccess } from "../utils/http.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
+import { sendError } from "../utils/http.js";
 
 const router = Router();
 const { Orders, OrderItems, Books } = models;

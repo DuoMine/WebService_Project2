@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { Op } from "sequelize";
 import { models } from "../config/db.js";
-import { requireAuth } from "../middlewares/auth.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
 import { sendError } from "../utils/http.js";
 
 const router = Router();
