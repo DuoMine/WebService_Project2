@@ -5,21 +5,11 @@ import { models } from "../config/db.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken, ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME, getAccessCookieOptions, getRefreshCookieOptions, } from "../utils/jwt.js";
 import crypto from "crypto";
+import { sendError } from "../utils/http.js";
 
 const router = Router();
 const { Users, UserRefreshTokens } = models;
 
-// 공통 에러 응답 헬퍼
-function sendError(res, status, code, message, details = undefined) {
-  return res.status(status).json({
-    timestamp: new Date().toISOString(),
-    path: res.req.originalUrl,
-    status,
-    code,
-    message,
-    details,
-  });
-}
 //토큰 해싱 함수
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex"); // 64글자
@@ -295,10 +285,14 @@ router.post("/refresh", async (req, res) => {
       return sendError(res, 401, "UNAUTHORIZED", "user not active");
     }
 
+    // 🔹 새 Access Token만 발급
     const accessToken = signAccessToken(user);
 
-    // 🔹 access_token 쿠키도 갱신
+    // access_token 쿠키 갱신
     res.cookie(ACCESS_COOKIE_NAME, accessToken, getAccessCookieOptions());
+    // refresh_token은 그대로 쓰고 싶으면 쿠키도 유지하거나,
+    // 만료시간을 다시 주고 싶으면 같은 값으로 한 번 더 setCookie 해도 됨:
+    // res.cookie(REFRESH_COOKIE_NAME, refresh_token, getRefreshCookieOptions());
 
     return res.json({
       token_type: "Bearer",
@@ -316,6 +310,7 @@ router.post("/refresh", async (req, res) => {
     );
   }
 });
+
 // ----------------------------
 // POST /auth/logout
 // ----------------------------

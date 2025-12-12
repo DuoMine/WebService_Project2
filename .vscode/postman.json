@@ -1,0 +1,820 @@
+{
+  "info": {
+    "_postman_id": "c7a5f5de-0000-4b2e-9b5a-111111111111",
+    "name": "WSD API (FULL)",
+    "description": "Auth + Users + AdminUsers + Authors + Books + Categories + Comments + Reviews + Favorites + Likes + Coupons + Libraries + Orders + Payments",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "apiPrefix",
+      "value": "/api/v1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "회원가입 POST /auth/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/register" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password1234!\",\n  \"name\": \"사용자1\",\n  \"birth_year\": 2000,\n  \"gender\": \"UNKNOWN\",\n  \"region_code\": \"KR-11\"\n}"
+            }
+          }
+        },
+        {
+          "name": "로그인 POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/login" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "내 정보 GET /auth/me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/me" }
+          }
+        },
+        {
+          "name": "토큰 재발급 POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh" }
+          }
+        },
+        {
+          "name": "로그아웃 POST /auth/logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "회원가입 POST /auth/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/register" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password1234!\",\n  \"name\": \"사용자1\",\n  \"birth_year\": 2000,\n  \"gender\": \"UNKNOWN\",\n  \"region_code\": \"KR-11\"\n}"
+            }
+          }
+        },
+        {
+          "name": "로그인 POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/login" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\",\n  \"password\": \"Password1234!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "내 정보 GET /auth/me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/me" }
+          }
+        },
+        {
+          "name": "토큰 재발급 POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh" }
+          }
+        },
+        {
+          "name": "로그아웃 POST /auth/logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "유저 목록 GET /users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users?page=1&size=10&keyword=",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "keyword", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "단일 유저 GET /users/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/users/1" }
+          }
+        },
+        {
+          "name": "유저 생성 POST /users",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/users" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user2@example.com\",\n  \"password\": \"Password1234!\",\n  \"name\": \"사용자2\",\n  \"birth_year\": 1998,\n  \"gender\": \"FEMALE\",\n  \"region_code\": \"KR-26\"\n}"
+            }
+          }
+        },
+        {
+          "name": "유저 수정 PATCH /users/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/users/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"수정된 사용자\",\n  \"birth_year\": 1999,\n  \"gender\": \"MALE\",\n  \"region_code\": \"KR-27\"\n}"
+            }
+          }
+        },
+        {
+          "name": "유저 삭제 DELETE /users/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/users/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AdminUsers",
+      "item": [
+        {
+          "name": "관리자 유저 목록 GET /admin/users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/users?page=1&size=20",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "관리자 유저 상세 GET /admin/users/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/admin/users/1" }
+          }
+        },
+        {
+          "name": "권한 변경 PATCH /admin/users/:id/role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/admin/users/1/role" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}"
+            }
+          }
+        },
+        {
+          "name": "상태 변경 PATCH /admin/users/:id/status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/admin/users/1/status" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authors",
+      "item": [
+        {
+          "name": "저자 목록 GET /authors",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/authors?page=1&size=10&keyword=",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "keyword", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "단일 저자 GET /authors/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/authors/1" }
+          }
+        },
+        {
+          "name": "저자 생성 POST /authors",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/authors" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"저자 이름\",\n  \"description\": \"저자 소개 텍스트\"\n}"
+            }
+          }
+        },
+        {
+          "name": "저자 수정 PATCH /authors/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/authors/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"수정된 저자 이름\",\n  \"description\": \"수정된 소개\"\n}"
+            }
+          }
+        },
+        {
+          "name": "저자 삭제 DELETE /authors/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/authors/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "카테고리 목록 GET /categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/categories" }
+          }
+        },
+        {
+          "name": "단일 카테고리 GET /categories/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/categories/1" }
+          }
+        },
+        {
+          "name": "카테고리 생성 POST /categories",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/categories" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"소설\",\n  \"parent_id\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "카테고리 수정 PATCH /categories/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/categories/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"수정된 카테고리 이름\"\n}"
+            }
+          }
+        },
+        {
+          "name": "카테고리 삭제 DELETE /categories/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/categories/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "도서 목록 GET /books",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/books?page=1&size=10&keyword=&category_id=",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "keyword", "value": "" },
+                { "key": "category_id", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "단일 도서 GET /books/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/books/1" }
+          }
+        },
+        {
+          "name": "도서 생성 POST /books",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/books" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"예시 도서 제목\",\n  \"author_id\": 1,\n  \"category_id\": 1,\n  \"price\": 15000,\n  \"isbn\": \"9781234567890\",\n  \"stock\": 10,\n  \"description\": \"도서 설명\"\n}"
+            }
+          }
+        },
+        {
+          "name": "도서 수정 PATCH /books/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/books/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"수정된 도서 제목\",\n  \"price\": 17000,\n  \"stock\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "도서 삭제 DELETE /books/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/books/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "댓글 목록 GET /comments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/comments?book_id=1&page=1&size=10",
+              "query": [
+                { "key": "book_id", "value": "1" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "댓글 생성 POST /comments",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/comments" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"book_id\": 1,\n  \"content\": \"댓글 내용입니다.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "댓글 수정 PATCH /comments/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/comments/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"수정된 댓글 내용입니다.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "댓글 삭제 DELETE /comments/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/comments/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "리뷰 목록 GET /reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/reviews?book_id=1&page=1&size=10",
+              "query": [
+                { "key": "book_id", "value": "1" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "리뷰 생성 POST /reviews",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/reviews" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"book_id\": 1,\n  \"rating\": 5,\n  \"title\": \"리뷰 제목\",\n  \"content\": \"리뷰 내용입니다.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "리뷰 수정 PATCH /reviews/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/reviews/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"title\": \"수정된 리뷰 제목\",\n  \"content\": \"수정된 리뷰 내용\"\n}"
+            }
+          }
+        },
+        {
+          "name": "리뷰 삭제 DELETE /reviews/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/reviews/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favorites",
+      "item": [
+        {
+          "name": "즐겨찾기 목록 GET /favorites",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/favorites" }
+          }
+        },
+        {
+          "name": "즐겨찾기 추가 POST /favorites",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/favorites" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"book_id\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "즐겨찾기 삭제 DELETE /favorites/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/favorites/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Likes",
+      "item": [
+        {
+          "name": "좋아요 목록/집계 GET /likes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/likes?book_id=1",
+              "query": [
+                { "key": "book_id", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "좋아요 추가 POST /likes",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/likes" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"book_id\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "좋아요 취소 DELETE /likes/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/likes/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "item": [
+        {
+          "name": "쿠폰 목록 GET /coupons",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/coupons" }
+          }
+        },
+        {
+          "name": "쿠폰 단일 조회 GET /coupons/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/coupons/1" }
+          }
+        },
+        {
+          "name": "쿠폰 생성 POST /coupons",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/coupons" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME10\",\n  \"name\": \"신규가입 10% 할인\",\n  \"discount_type\": \"RATE\",\n  \"discount_value\": 10,\n  \"min_price\": 10000,\n  \"expires_at\": \"2025-12-31T23:59:59.000Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "쿠폰 수정 PATCH /coupons/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/coupons/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"수정된 쿠폰 이름\"\n}"
+            }
+          }
+        },
+        {
+          "name": "쿠폰 삭제 DELETE /coupons/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/coupons/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Libraries",
+      "item": [
+        {
+          "name": "지점 목록 GET /libraries",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/libraries" }
+          }
+        },
+        {
+          "name": "지점 단일 GET /libraries/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/libraries/1" }
+          }
+        },
+        {
+          "name": "지점 생성 POST /libraries",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/libraries" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"홍대점\",\n  \"address\": \"서울 어딘가 123\",\n  \"phone\": \"02-123-4567\"\n}"
+            }
+          }
+        },
+        {
+          "name": "지점 수정 PATCH /libraries/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/libraries/1" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"수정된 홍대점\"\n}"
+            }
+          }
+        },
+        {
+          "name": "지점 삭제 DELETE /libraries/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/libraries/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "주문 목록 GET /orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/orders?page=1&size=10",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "단일 주문 GET /orders/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/orders/1" }
+          }
+        },
+        {
+          "name": "주문 생성 POST /orders",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/orders" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"book_id\": 1, \"quantity\": 2 },\n    { \"book_id\": 2, \"quantity\": 1 }\n  ],\n  \"coupon_id\": 1,\n  \"shipping_address\": \"서울 어디 123-45\",\n  \"receiver_name\": \"홍길동\",\n  \"receiver_phone\": \"010-1234-5678\",\n  \"payment_method\": \"CARD\"\n}"
+            }
+          }
+        },
+        {
+          "name": "주문 상태 변경 PATCH /orders/:id/status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/orders/1/status" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHIPPED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "주문 취소 DELETE /orders/:id",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/orders/1" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "결제 목록 GET /payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/payments?page=1&size=10",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "단일 결제 GET /payments/:id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/payments/1" }
+          }
+        },
+        {
+          "name": "결제 생성 POST /payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/payments" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": 1,\n  \"amount\": 45000,\n  \"method\": \"CARD\"\n}"
+            }
+          }
+        },
+        {
+          "name": "결제 취소 POST /payments/:id/cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}{{apiPrefix}}/payments/1/cancel" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"고객 단순 변심\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
