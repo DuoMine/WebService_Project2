@@ -1,19 +1,27 @@
 // src/routes/auth.js
 import { Router } from "express";
 import bcrypt from "bcrypt";
-import { models } from "../config/db.js";
-import { signAccessToken, signRefreshToken, verifyRefreshToken, ACCESS_COOKIE_NAME,
-  REFRESH_COOKIE_NAME, getAccessCookieOptions, getRefreshCookieOptions, } from "../utils/jwt.js";
 import crypto from "crypto";
+import { models } from "../config/db.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  ACCESS_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  getAccessCookieOptions,
+  getRefreshCookieOptions,
+} from "../utils/jwt.js";
 import { sendError } from "../utils/http.js";
 
 const router = Router();
 const { Users, UserRefreshTokens } = models;
 
-//토큰 해싱 함수
+// 토큰 해시
 function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex"); // 64글자
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
+
 // ----------------------------
 // 회원가입 검증
 // ----------------------------
@@ -56,9 +64,8 @@ function validateRegisterBody(body) {
     errors.region_code = "region_code must be <= 10 chars";
   }
 
-  if (Object.keys(errors).length > 0) {
-    return { ok: false, errors };
-  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+
   return {
     ok: true,
     value: {
@@ -87,25 +94,13 @@ router.post("/register", async (req, res) => {
 
     const existing = await Users.findOne({ where: { email } });
     if (existing) {
-      return sendError(
-        res,
-        409,
-        "DUPLICATE_RESOURCE",
-        "email already in use",
-        { email }
-      );
+      return sendError(res, 409, "DUPLICATE_RESOURCE", "email already in use", { email });
     }
 
     if (phone_number) {
       const existingPhone = await Users.findOne({ where: { phone_number } });
       if (existingPhone) {
-        return sendError(
-          res,
-          409,
-          "DUPLICATE_RESOURCE",
-          "phone_number already in use",
-          { phone_number }
-        );
+        return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", { phone_number });
       }
     }
 
@@ -138,12 +133,7 @@ router.post("/register", async (req, res) => {
     });
   } catch (err) {
     console.error("register error:", err);
-    return sendError(
-      res,
-      500,
-      "INTERNAL_SERVER_ERROR",
-      "failed to register user"
-    );
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to register user");
   }
 });
 
@@ -152,22 +142,10 @@ router.post("/register", async (req, res) => {
 // ----------------------------
 function validateLoginBody(body) {
   const errors = {};
-  if (!body.email || typeof body.email !== "string") {
-    errors.email = "email is required";
-  }
-  if (!body.password || typeof body.password !== "string") {
-    errors.password = "password is required";
-  }
-  if (Object.keys(errors).length > 0) {
-    return { ok: false, errors };
-  }
-  return {
-    ok: true,
-    value: {
-      email: body.email.trim(),
-      password: body.password,
-    },
-  };
+  if (!body.email || typeof body.email !== "string") errors.email = "email is required";
+  if (!body.password || typeof body.password !== "string") errors.password = "password is required";
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, value: { email: body.email.trim(), password: body.password } };
 }
 
 // ----------------------------
@@ -184,16 +162,12 @@ router.post("/login", async (req, res) => {
       where: { email: value.email, status: "ACTIVE" },
     });
 
-    if (!user) {
-      return sendError(res, 401, "UNAUTHORIZED", "invalid email or password");
-    }
+    if (!user) return sendError(res, 401, "UNAUTHORIZED", "invalid email or password");
 
     const match = await bcrypt.compare(value.password, user.password_hash);
-    if (!match) {
-      return sendError(res, 401, "UNAUTHORIZED", "invalid email or password");
-    }
+    if (!match) return sendError(res, 401, "UNAUTHORIZED", "invalid email or password");
 
-    // refresh token row 생성
+    // refresh row 생성
     const placeholderHash = hashToken(crypto.randomUUID());
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -206,34 +180,25 @@ router.post("/login", async (req, res) => {
       created_at: new Date(),
     });
 
-    // 실제 토큰 발급
     const accessToken = signAccessToken(user);
     const refreshToken = signRefreshToken(user, refreshRow.id);
 
-    // refreshToken 해시 저장
     refreshRow.refresh_token_hash = hashToken(refreshToken);
     await refreshRow.save();
 
-    // ✅ 여기에 쿠키 추가 (브라우저용)
+    // 쿠키 세팅
     res.cookie(ACCESS_COOKIE_NAME, accessToken, getAccessCookieOptions());
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions());
 
-    // 응답 JSON은 기존 포맷 유지
     return res.json({
       token_type: "Bearer",
       access_token: accessToken,
       refresh_token: refreshToken,
-      expires_in:
-        parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
+      expires_in: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
     });
   } catch (err) {
     console.error("login error:", err);
-    return sendError(
-      res,
-      500,
-      "INTERNAL_SERVER_ERROR",
-      "failed to login"
-    );
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to login");
   }
 });
 
@@ -241,11 +206,8 @@ router.post("/login", async (req, res) => {
 // POST /auth/refresh
 // ----------------------------
 router.post("/refresh", async (req, res) => {
-  // 🔹 1순위: 쿠키에서 읽기 (브라우저)
   const fromCookie = req.cookies?.[REFRESH_COOKIE_NAME];
-  // 🔹 2순위: body에서 읽기 (Postman)
   const fromBody = req.body?.refresh_token;
-
   const refresh_token = fromCookie || fromBody;
 
   if (!refresh_token || typeof refresh_token !== "string") {
@@ -262,22 +224,12 @@ router.post("/refresh", async (req, res) => {
     });
 
     if (!row || row.revoked_at || row.expires_at < new Date()) {
-      return sendError(
-        res,
-        401,
-        "TOKEN_EXPIRED",
-        "refresh token expired or revoked"
-      );
+      return sendError(res, 401, "TOKEN_EXPIRED", "refresh token expired or revoked");
     }
 
     const incomingHash = hashToken(refresh_token);
     if (row.refresh_token_hash !== incomingHash) {
-      return sendError(
-        res,
-        401,
-        "UNAUTHORIZED",
-        "invalid refresh token"
-      );
+      return sendError(res, 401, "UNAUTHORIZED", "invalid refresh token");
     }
 
     const user = await Users.findByPk(userId);
@@ -285,29 +237,22 @@ router.post("/refresh", async (req, res) => {
       return sendError(res, 401, "UNAUTHORIZED", "user not active");
     }
 
-    // 🔹 새 Access Token만 발급
+    // 새 Access Token 발급
     const accessToken = signAccessToken(user);
 
-    // access_token 쿠키 갱신
+    // 쿠키 갱신: access + (과제용으로 refresh도 동일값 재세팅해서 만료 연장 느낌 주기)
     res.cookie(ACCESS_COOKIE_NAME, accessToken, getAccessCookieOptions());
-    // refresh_token은 그대로 쓰고 싶으면 쿠키도 유지하거나,
-    // 만료시간을 다시 주고 싶으면 같은 값으로 한 번 더 setCookie 해도 됨:
-    // res.cookie(REFRESH_COOKIE_NAME, refresh_token, getRefreshCookieOptions());
+    res.cookie(REFRESH_COOKIE_NAME, refresh_token, getRefreshCookieOptions());
 
     return res.json({
       token_type: "Bearer",
       access_token: accessToken,
-      expires_in:
-        parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
+      expires_in: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
     });
   } catch (err) {
+    // refresh 자체가 만료/위조/형식오류인 경우
     console.error("refresh error:", err);
-    return sendError(
-      res,
-      401,
-      "TOKEN_EXPIRED",
-      "invalid or expired refresh token"
-    );
+    return sendError(res, 401, "TOKEN_EXPIRED", "invalid or expired refresh token");
   }
 });
 
@@ -316,18 +261,22 @@ router.post("/refresh", async (req, res) => {
 // ----------------------------
 router.post("/logout", async (req, res) => {
   const fromCookie = req.cookies?.[REFRESH_COOKIE_NAME];
+
   if (fromCookie) {
     try {
       const decoded = verifyRefreshToken(fromCookie);
       await UserRefreshTokens.update(
         { revoked_at: new Date() },
-        { where: { id: decoded.jti } }
+        { where: { id: decoded.jti, user_id: decoded.sub, revoked_at: null } }
       );
-    } catch (_) { /* 토큰 망가져 있으면 무시 */ }
+    } catch (_) {
+      // 토큰이 망가져 있으면 그냥 쿠키만 지움
+    }
   }
 
-  res.clearCookie(ACCESS_COOKIE_NAME, getAccessCookieOptions());
-  res.clearCookie(REFRESH_COOKIE_NAME, getRefreshCookieOptions());
+  // 쿠키 삭제
+  res.clearCookie(ACCESS_COOKIE_NAME, { path: "/" });
+  res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
 
   return res.status(204).send();
 });

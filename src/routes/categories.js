@@ -3,27 +3,10 @@ import { Router } from "express";
 import { Op } from "sequelize";
 import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
-import { sendError } from "../utils/http.js";
+import { sendError, sendOk } from "../utils/http.js";
 
 const router = Router();
 const { Categories } = models;
-
-function sendOk(res, message, payload = undefined) {
-  return res.json({
-    isSuccess: true,
-    message,
-    ...(payload !== undefined ? { payload } : {}),
-  });
-}
-
-function buildPagination(page, size, total) {
-  return {
-    currentPage: page,
-    totalPages: Math.ceil(total / size),
-    totalElements: total,
-    size,
-  };
-}
 
 function parsePagination(query) {
   const page = Math.max(1, parseInt(query.page ?? "1", 10));
@@ -37,7 +20,7 @@ function parsePagination(query) {
 // body: { name, description? }
 // ----------------------------
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  const { name, description } = req.body ?? {};
+  const { name, parentId } = req.body ?? {};
   const errors = {};
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -56,7 +39,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 
   try {
     const exists = await Categories.findOne({
-      where: { name: name.trim(), deleted_at: { [Op.is]: null } },
+      where: { name: name.trim() },
     });
 
     if (exists) {
@@ -70,16 +53,12 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 
     const now = new Date();
     const cat = await Categories.create({
-      name: name.trim(),
-      description: description?.trim() || null,
+      name: name,
+      parent_id:  parentId ?? null,
       created_at: now,
-      updated_at: now,
-      deleted_at: null,
     });
 
-    return sendOk(res, "카테고리가 등록되었습니다.", {
-      categoryId: cat.id,
-    });
+    return sendOk(res, { categoryId: cat.id });
   } catch (err) {
     console.error("POST /categories error:", err);
     return sendError(
@@ -93,19 +72,14 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 
 // ----------------------------
 // GET /categories  - 카테고리 목록
-// query: page, size, q
+// query: page, size, q, sort
 // ----------------------------
 router.get("/", async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
   const q = (req.query.q || "").toString().trim();
 
-  const where = {
-    deleted_at: { [Op.is]: null },
-  };
-
-  if (q) {
-    where.name = { [Op.like]: `%${q}%` };
-  }
+  const where = {};
+  if (q) where.name = { [Op.like]: `%${q}%` };
 
   try {
     const { rows, count } = await Categories.findAndCountAll({
@@ -118,12 +92,16 @@ router.get("/", async (req, res) => {
     const content = rows.map((c) => ({
       id: c.id,
       name: c.name,
-      description: c.description,
+      parentId: c.parent_id,
+      createdAt: c.created_at,
     }));
 
-    return sendOk(res, "카테고리 목록 조회 성공", {
+    return sendOk(res, {
       content,
-      pagination: buildPagination(page, size, count),
+      page,
+      size,
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
     });
   } catch (err) {
     console.error("GET /categories error:", err);
@@ -146,18 +124,17 @@ router.get("/:categoryId", async (req, res) => {
   }
 
   try {
-    const cat = await Categories.findOne({
-      where: { id: categoryId, deleted_at: { [Op.is]: null } },
-    });
+    const cat = await Categories.findOne({ where: { id: categoryId } });
 
     if (!cat) {
       return sendError(res, 404, "NOT_FOUND", "category not found");
     }
 
-    return sendOk(res, "카테고리 상세 조회 성공", {
+    return sendOk(res, {
       id: cat.id,
       name: cat.name,
-      description: cat.description,
+      parentId: cat.parent_id,
+      createdAt: cat.created_at,
     });
   } catch (err) {
     console.error("GET /categories/:categoryId error:", err);
@@ -174,17 +151,13 @@ router.get("/:categoryId", async (req, res) => {
 // PUT /categories/:categoryId  (ADMIN) - 카테고리 수정
 // body: { name?, description? }
 // ----------------------------
-router.put(
-  "/:categoryId",
-  requireAuth,
-  requireRole("ADMIN"),
-  async (req, res) => {
+router.put( "/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) => {
     const categoryId = parseInt(req.params.categoryId, 10);
     if (!categoryId) {
       return sendError(res, 400, "BAD_REQUEST", "invalid categoryId");
     }
 
-    const { name, description } = req.body ?? {};
+    const { name, parentId } = req.body ?? {};
     const errors = {};
 
     if (name !== undefined) {
@@ -193,29 +166,26 @@ router.put(
       }
     }
 
+    let parent_id;
+    if (parentId !== undefined) {
+      if (parentId === null || parentId === "") parent_id = null;
+      else {
+        const n = parseInt(parentId, 10);
+        if (!Number.isFinite(n) || n <= 0) errors.parentId = "parentId must be a positive integer";
+        else parent_id = n;
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
-      return sendError(
-        res,
-        400,
-        "VALIDATION_FAILED",
-        "invalid request body",
-        errors
-      );
+      return sendError( res, 400, "VALIDATION_FAILED", "invalid request body", errors );
     }
 
     try {
-      const cat = await Categories.findOne({
-        where: { id: categoryId, deleted_at: { [Op.is]: null } },
-      });
-
-      if (!cat) {
-        return sendError(res, 404, "NOT_FOUND", "category not found");
-      }
+      const cat = await Categories.findOne({ where: { id: categoryId } });
+      if (!cat) return sendError(res, 404, "NOT_FOUND", "category not found");
 
       if (name !== undefined) cat.name = name.trim();
-      if (description !== undefined)
-        cat.description = description?.trim() || null;
-      cat.updated_at = new Date();
+      if (parentId !== undefined) cat.parent_id = parentId ?? null;
 
       await cat.save();
 
@@ -235,26 +205,19 @@ router.put(
 // ----------------------------
 // DELETE /categories/:categoryId  (ADMIN) - soft delete
 // ----------------------------
-router.delete(
-  "/:categoryId",
-  requireAuth,
-  requireRole("ADMIN"),
-  async (req, res) => {
+router.delete( "/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) => {
     const categoryId = parseInt(req.params.categoryId, 10);
     if (!categoryId) {
       return sendError(res, 400, "BAD_REQUEST", "invalid categoryId");
     }
 
     try {
-      const cat = await Categories.findOne({
-        where: { id: categoryId, deleted_at: { [Op.is]: null } },
-      });
+      const cat = await Categories.findOne({ where: { id: categoryId }, });
 
       if (!cat) {
         return sendError(res, 404, "NOT_FOUND", "category not found");
       }
 
-      cat.deleted_at = new Date();
       await cat.save();
 
       return sendOk(res, "카테고리가 삭제되었습니다.");

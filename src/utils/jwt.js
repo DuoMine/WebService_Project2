@@ -4,39 +4,38 @@ import jwt from "jsonwebtoken";
 const {
   JWT_ACCESS_SECRET = "dev-access-secret",
   JWT_REFRESH_SECRET = "dev-refresh-secret",
-  JWT_ACCESS_EXPIRES_IN = "900s",     // 15분
-  JWT_REFRESH_EXPIRES_IN = "7d",      // 7일
+  JWT_ACCESS_EXPIRES_IN = "900s", // 15분
+  JWT_REFRESH_EXPIRES_IN = "7d",  // 7일
+  COOKIE_SECURE = "false",        // 배포 환경에서 https면 true
 } = process.env;
 
-// 🔹 쿠키 이름 고정
+// 쿠키 이름 고정
 export const ACCESS_COOKIE_NAME = "access_token";
 export const REFRESH_COOKIE_NAME = "refresh_token";
 
-// 🔹 공통: 환경에 따라 secure / sameSite 다르게
+// 공통 쿠키 옵션 (과제/JCloud 기준으로 보수적으로)
 function baseCookieOptions() {
-  const isProd = process.env.NODE_ENV === "production";
+  const isSecure = COOKIE_SECURE === "true";
   return {
     httpOnly: true,
-    secure: isProd,              // HTTPS면 true
-    sameSite: isProd ? "none" : "lax",
-    path: "/",                   // 전체에 대해 유효
-    // maxAge는 안 줘도 됨 (세션 쿠키). 필요하면 아래에서 추가로 세팅.
+    secure: isSecure,
+    sameSite: "lax",
+    path: "/",
   };
 }
 
 export function getAccessCookieOptions() {
+  // access는 세션 쿠키로 두는 게 깔끔함 (maxAge 생략)
   return {
     ...baseCookieOptions(),
-    // 필요하면 여기서 maxAge 지정 (예: 15분)
-    // maxAge: 15 * 60 * 1000,
   };
 }
 
 export function getRefreshCookieOptions() {
+  // refresh는 7일 지속
   return {
     ...baseCookieOptions(),
-    // 필요하면 여기서 maxAge 지정 (예: 7일)
-    // maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 }
 

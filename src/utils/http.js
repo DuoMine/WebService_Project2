@@ -10,3 +10,6 @@ export function sendError(res, status, code, message, details = undefined) {
     details,
   });
 }
+export function sendOk(res, payload, status = 200) {
+  return res.status(status).json(payload);
+}

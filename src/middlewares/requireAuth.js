@@ -1,17 +1,9 @@
-// src/middlewares/auth.js
-import crypto from "crypto";
-import {
-  verifyAccessToken,
-  verifyRefreshToken,
-  signAccessToken,
-  ACCESS_COOKIE_NAME,
-  REFRESH_COOKIE_NAME,
-  getAccessCookieOptions,
-} from "../utils/jwt.js";
+// src/middlewares/requireAuth.js
+import { verifyAccessToken, ACCESS_COOKIE_NAME } from "../utils/jwt.js";
 import { models } from "../config/db.js";
 import { Op } from "sequelize";
 
-const { Users, UserRefreshTokens } = models;
+const { Users } = models;
 
 function sendError(res, status, code, message, details = undefined) {
   return res.status(status).json({
@@ -24,17 +16,10 @@ function sendError(res, status, code, message, details = undefined) {
   });
 }
 
-// refresh 토큰 해시 함수 (auth.js랑 동일하게)
-function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
-
-// Access Token 검증 + 자동 refresh + 유저 로드
+// Access Token 검증 + 유저 로드 (자동 refresh 제거: 과제용으로 명확하게)
 export async function requireAuth(req, res, next) {
-  // 1순위: 쿠키
   const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
 
-  // 2순위: Authorization: Bearer ...
   const auth = req.headers["authorization"];
   const headerToken =
     auth && auth.startsWith("Bearer ")
@@ -48,7 +33,6 @@ export async function requireAuth(req, res, next) {
   }
 
   try {
-    // 1차 시도: access 토큰 검증
     const decoded = verifyAccessToken(token);
     const userId = decoded.sub;
 
@@ -61,12 +45,7 @@ export async function requireAuth(req, res, next) {
     });
 
     if (!user) {
-      return sendError(
-        res,
-        401,
-        "UNAUTHORIZED",
-        "user not found or inactive"
-      );
+      return sendError(res, 401, "UNAUTHORIZED", "user not found or inactive");
     }
 
     req.auth = {
@@ -79,104 +58,12 @@ export async function requireAuth(req, res, next) {
 
     return next();
   } catch (err) {
-    // access 토큰이 만료된 경우에만 자동 refresh 시도
-    if (err.name !== "TokenExpiredError") {
-      console.error("requireAuth error:", err);
-      return sendError(
-        res,
-        401,
-        "TOKEN_EXPIRED",
-        "invalid or expired access token"
-      );
+    // 만료 vs 위조/형식오류 분리
+    if (err?.name === "TokenExpiredError") {
+      return sendError(res, 401, "TOKEN_EXPIRED", "access token expired");
     }
-
-    // 🔹 여기서부터는 "만료" 케이스: refresh 쿠키로 재발급 시도
-    try {
-      const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
-      if (!refreshToken) {
-        return sendError(
-          res,
-          401,
-          "TOKEN_EXPIRED",
-          "access token expired, refresh token missing"
-        );
-      }
-
-      const decodedRt = verifyRefreshToken(refreshToken); // { sub, jti }
-      const tokenId = decodedRt.jti;
-      const userId = decodedRt.sub;
-
-      const row = await UserRefreshTokens.findOne({
-        where: { id: tokenId, user_id: userId },
-      });
-
-      if (!row || row.revoked_at || row.expires_at < new Date()) {
-        return sendError(
-          res,
-          401,
-          "TOKEN_EXPIRED",
-          "refresh token expired or revoked"
-        );
-      }
-
-      const incomingHash = hashToken(refreshToken);
-      if (row.refresh_token_hash !== incomingHash) {
-        return sendError(
-          res,
-          401,
-          "UNAUTHORIZED",
-          "invalid refresh token"
-        );
-      }
-
-      const user = await Users.findOne({
-        where: {
-          id: userId,
-          status: "ACTIVE",
-          deleted_at: { [Op.is]: null },
-        },
-      });
-
-      if (!user) {
-        return sendError(
-          res,
-          401,
-          "UNAUTHORIZED",
-          "user not found or inactive"
-        );
-      }
-
-      // 새 access 토큰 발급
-      const newAccessToken = signAccessToken(user);
-
-      // 쿠키 갱신 (브라우저용)
-      res.cookie(
-        ACCESS_COOKIE_NAME,
-        newAccessToken,
-        getAccessCookieOptions()
-      );
-
-      // 새 토큰 decode 해서 req.auth 채우기
-      const newDecoded = verifyAccessToken(newAccessToken);
-
-      req.auth = {
-        userId: user.id,
-        role: user.role,
-        tokenExp: newDecoded.exp,
-        payload: newDecoded,
-      };
-      req.user = user;
-
-      return next();
-    } catch (refreshErr) {
-      console.error("requireAuth auto-refresh error:", refreshErr);
-      return sendError(
-        res,
-        401,
-        "TOKEN_EXPIRED",
-        "invalid or expired refresh token"
-      );
-    }
+    console.error("requireAuth error:", err);
+    return sendError(res, 401, "UNAUTHORIZED", "invalid access token");
   }
 }
 

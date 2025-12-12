@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { swaggerSpec } from "./docs/swagger.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { initDb } from "./config/db.js";
+import { createRequire } from "module";
 import authRouter from "./routes/auth.js"
 import usersRouter from "./routes/users.js"; 
 import booksRouter from "./routes/books.js";
@@ -14,17 +15,20 @@ import commentsRouter from "./routes/comments.js";
 import favoritesRouter from "./routes/favorites.js";
 import ordersRouter from "./routes/orders.js";
 import librariesRouter from "./routes/libraries.js";
-import userLikesRouter from "./routes/likes.js";
+import likesRouter from "./routes/likes.js";
 import authorsRouter from "./routes/authors.js";
 import categoriesRouter from "./routes/categories.js";
 import paymentsRouter from "./routes/payments.js";
-import adminUsersRouter from "./routes/adminUsers.js";
+
+
 
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 
 // DB 연결
 await initDb();
@@ -39,23 +43,22 @@ app.use(cookieParser());
 
 // Health Check
 app.get("/health", (req, res) => {
-  res.json({ status: "OK", time: new Date().toISOString() });
+  res.json({ status: "OK", version: pkg.version, time: new Date().toISOString() });
 });
 
 // TODO: 각 리소스 라우트 연결
 app.use("/auth", authRouter);  
 app.use("/users", usersRouter); 
 app.use("/books", booksRouter);
-app.use("/", reviewsRouter);
-app.use("/", commentsRouter);
+app.use("/reviews", reviewsRouter);
+app.use("/comments", commentsRouter);
 app.use("/favorites", favoritesRouter);
 app.use("/orders", ordersRouter);
 app.use("/libraries", librariesRouter);
-app.use("/", userLikesRouter);
+app.use("/likes", likesRouter);
 app.use("/authors", authorsRouter);
 app.use("/categories", categoriesRouter);
-app.use("/", paymentsRouter);
-app.use("/", adminUsersRouter);
+app.use("/payments", paymentsRouter);
 
 // Swagger
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
