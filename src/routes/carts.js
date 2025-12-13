@@ -85,16 +85,16 @@ router.get( "/me", requireAuth, async (req, res) => {
 );
 
 // ----------------------------
-// POST /carts/items  - 카트에 담기
+// POST /carts  - 카트에 담기
 // body: { bookId, quantity? }  (quantity 없으면 1)
 // 규칙:
 // - 책 존재해야 함 (deleted_at=null)
 // - 이미 담겨 있으면 quantity 증가
 // - 없으면 새로 생성
 // ----------------------------
-// POST /carts/items
+// POST /carts
 // body: { bookId, quantity? }
-router.post( "/items", requireAuth, async (req, res) => {
+router.post( "", requireAuth, async (req, res) => {
     const userId = req.user.id;
     const { bookId, quantity } = req.body ?? {};
 
@@ -157,7 +157,7 @@ router.post( "/items", requireAuth, async (req, res) => {
       return sendOk(res, `아이템이 ${qty}개 추가되었습니다`);
     } catch (err) {
       if (!t.finished) await t.rollback();
-      console.error("POST /carts/items error:", err);
+      console.error("POST /carts error:", err);
       return sendError(
         res,
         500,
@@ -248,10 +248,10 @@ router.get( "/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
 );
 
 // ----------------------------
-// PUT /carts/items/:cartItemId  - 수량 변경 (내 것만)
+// PUT /carts/:cartItemId  - 수량 변경 (내 것만)
 // body: { quantity }
 // ----------------------------
-router.put("/items/:cartItemId", requireAuth, async (req, res) => {
+router.put("/:cartItemId", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const cartItemId = parseInt(req.params.cartItemId, 10);
   if (!cartItemId) return sendError(res, 400, "BAD_REQUEST", "invalid cartItemId");
@@ -282,16 +282,16 @@ router.put("/items/:cartItemId", requireAuth, async (req, res) => {
 
     return sendOk(res, {});
   } catch (err) {
-    console.error("PUT /carts/items/:cartItemId error:", err);
+    console.error("PUT /carts/:cartItemId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update cart item");
   }
 });
 
 
 // ----------------------------
-// DELETE /carts/items/:cartItemId  - 항목 삭제(soft: is_active=false)
+// DELETE /carts/:cartItemId  - 항목 삭제(soft: is_active=false)
 // ----------------------------
-router.delete("/items/:cartItemId", requireAuth, async (req, res) => {
+router.delete("/:cartItemId", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const cartItemId = parseInt(req.params.cartItemId, 10);
   if (!cartItemId) return sendError(res, 400, "BAD_REQUEST", "invalid cartItemId");
@@ -313,15 +313,15 @@ router.delete("/items/:cartItemId", requireAuth, async (req, res) => {
 
     return sendOk(res, {});
   } catch (err) {
-    console.error("DELETE /carts/items/:cartItemId error:", err);
+    console.error("DELETE /carts/:cartItemId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete cart item");
   }
 });
 
 // ----------------------------
-// DELETE /carts/me/items  - 내 카트 비우기(전체 soft delete)
+// DELETE /carts/me  - 내 카트 비우기(전체 soft delete)
 // ----------------------------
-router.delete("/items", requireAuth, async (req, res) => {
+router.delete("/", requireAuth, async (req, res) => {
   const userId = getUserId(req);
   if (!userId) return sendError(res, 401, "UNAUTHORIZED", "missing user");
 
@@ -333,7 +333,7 @@ router.delete("/items", requireAuth, async (req, res) => {
 
     return sendOk(res, {});
   } catch (err) {
-    console.error("DELETE /carts/me/items error:", err);
+    console.error("DELETE /carts error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to clear cart");
   }
 });

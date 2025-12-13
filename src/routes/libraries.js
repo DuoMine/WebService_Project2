@@ -29,10 +29,10 @@ const LIBRARY_SORT_FIELDS = {
 };
 
 // ---------------------------------------------------------------------
-// 5.1 라이브러리에 도서 추가 (POST /libraries/items)
+// 5.1 라이브러리에 도서 추가 (POST /libraries)
 // body: { bookId }
 // ---------------------------------------------------------------------
-router.post("/items", requireAuth, async (req, res) => {
+router.post("", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const bookId = Number(req.body?.bookId);
 
@@ -84,7 +84,7 @@ router.post("/items", requireAuth, async (req, res) => {
       201
     );
   } catch (err) {
-    console.error("POST /libraries/items error:", err);
+    console.error("POST /libraries error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to add library item");
   }
 });
@@ -200,9 +200,9 @@ router.get("/:libraryId", requireAuth, async (req, res) => {
 });
 
 // ----------------------------
-// 라이브러리 도서 삭제(DELETE /libraries/items/:itemId)
+// 라이브러리 도서 삭제(DELETE /libraries/:itemId)
 // ----------------------------
-router.delete("/items/:itemId", requireAuth, async (req, res) => {
+router.delete("/:itemId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const itemId = Number(req.params.itemId);
 
@@ -219,7 +219,7 @@ router.delete("/items/:itemId", requireAuth, async (req, res) => {
 
     return sendOk(res, "도서가 삭제되었습니다");
   } catch (err) {
-    console.error("DELETE /libraries/items/:itemId error:", err);
+    console.error("DELETE /libraries/:itemId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete library item");
   }
 });

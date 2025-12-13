@@ -1,56 +1,54 @@
 // src/routes/favorites.js
 import { Router } from "express";
 import { models } from "../config/db.js";
-import { requireAuth } from "../middlewares/requireAuth.js";
-import { sendError } from "../utils/http.js";
+import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
+import { sendError, sendOk } from "../utils/http.js";
 
 const router = Router();
 const { Favorites, Books } = models;
 
-// 간단 페이지 파서
 function parsePagination(query) {
   const page = Math.max(1, parseInt(query.page ?? "1", 10));
   const size = Math.min(50, Math.max(1, parseInt(query.size ?? "10", 10)));
   const offset = (page - 1) * size;
   return { page, size, offset };
 }
-
-/**
- * 6.1 위시리스트 추가 (POST /favorites)
- * body: { bookId: bigint }
- */
+// ----------------------------
+// POST /favorites
+// body: { bookId }
+// ----------------------------
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
-  const { bookId } = req.body ?? {};
+  const bookId = parseInt(req.body?.bookId, 10);
 
-  if (!bookId || !Number.isInteger(Number(bookId))) {
-    return sendError(res, 400, "VALIDATION_FAILED", "bookId is required");
+  if (!Number.isInteger(bookId) || bookId <= 0) {
+    return sendError(res, 400, "BAD_REQUEST", "bookId must be positive integer");
   }
 
   try {
     const book = await Books.findByPk(bookId);
-    if (!book) {
-      return sendError(res, 404, "NOT_FOUND", "book not found");
-    }
+    if (!book) return sendError(res, 404, "NOT_FOUND", "book not found");
 
-    // 이미 있는지 검사 (중복 방지)
-    const existing = await Favorites.findOne({
-      where: { user_id: userId, book_id: bookId },
-    });
-
+    // 1) (권장) DB에 UNIQUE(user_id, book_id) 있다면 그냥 create하고 중복이면 409
+    // 2) 지금은 안전하게 사전 체크도 유지 (레이스컨디션은 완벽히 못 막음)
+    const existing = await Favorites.findOne({ where: { user_id: userId, book_id: bookId } });
     if (existing) {
-      // 굳이 에러 안 던지고 그냥 성공 처리해도 됨
-      return sendSuccess(res, "이미 위시리스트에 있는 도서입니다.");
+      return sendError(res, 409, "CONFLICT", "already favorited");
     }
 
-    await Favorites.create({
+    const fav = await Favorites.create({
       user_id: userId,
       book_id: bookId,
       created_at: new Date(),
       updated_at: new Date(),
     });
 
-    return sendSuccess(res, "위시리스트에 추가되었습니다.");
+    return sendOk(res, {
+      id: fav.id,
+      userId: fav.user_id,
+      bookId: fav.book_id,
+      createdAt: fav.created_at,
+    }, 201);
   } catch (err) {
     console.error("POST /favorites error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to add favorite");
@@ -58,13 +56,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 /**
- * 6.2 위시리스트 조회 (GET /favorites)
- * query: page, size
- * 응답 payload:
- * {
- *   content: [{ favoriteId, bookId, bookTitle, addedAt }],
- *   pagination: { currentPage, totalPages, totalElements, size }
- * }
+ * GET /favorites?page=1&size=10
  */
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -73,36 +65,31 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const { rows, count } = await Favorites.findAndCountAll({
       where: { user_id: userId },
-      include: [
-        {
-          model: Books,
-          as: "book",
-          attributes: ["title"],
-        },
-      ],
+      include: [{ model: Books, as: "book", attributes: ["id", "title", "price"] }],
       order: [["created_at", "DESC"]],
       limit: size,
       offset,
     });
 
-    const totalElements = count;
-    const totalPages = Math.max(1, Math.ceil(totalElements / size));
-
     const content = rows.map((fav) => ({
-      favoriteId: fav.id,
+      id: fav.id,
       bookId: fav.book_id,
-      bookTitle: fav.book?.title ?? null,
-      addedAt: fav.created_at,
+      createdAt: fav.created_at,
+      book: fav.book
+        ? {
+            id: fav.book.id,
+            title: fav.book.title,
+            price: fav.book.price,
+          }
+        : null,
     }));
 
-    return sendSuccess(res, "위시리스트 조회 성공", {
+    return sendOk(res, {
       content,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalElements,
-        size,
-      },
+      page,
+      size,
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
     });
   } catch (err) {
     console.error("GET /favorites error:", err);
@@ -111,26 +98,74 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 /**
- * 6.3 위시리스트 삭제 (DELETE /favorites/{favoriteId})
+ * GET /favorites/:id (ADMIN)
  */
-router.delete("/:favoriteId", requireAuth, async (req, res) => {
-  const userId = req.auth.userId;
-  const favoriteId = Number(req.params.favoriteId);
+router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
+  const favoriteId = parseInt(req.params.id, 10);
 
-  if (!favoriteId || !Number.isInteger(favoriteId)) {
-    return sendError(res, 400, "VALIDATION_FAILED", "favoriteId must be integer");
+  if (!Number.isInteger(favoriteId) || favoriteId <= 0) {
+    return sendError(res, 400, "BAD_REQUEST", "id must be positive integer");
   }
 
   try {
-    const deleted = await Favorites.destroy({
-      where: { id: favoriteId, user_id: userId },
+    const favorite = await Favorites.findByPk(favoriteId, {
+      include: [
+        {
+          model: Books,
+          as: "book",
+          attributes: ["id", "title", "price"],
+        },
+        {
+          model: models.Users,
+          as: "user",
+          attributes: ["id", "email"],
+        },
+      ],
     });
 
-    if (!deleted) {
+    if (!favorite) {
       return sendError(res, 404, "NOT_FOUND", "favorite not found");
     }
 
-    return sendSuccess(res, "위시리스트에서 삭제되었습니다.");
+    return sendOk(res, {
+      id: favorite.id,
+      createdAt: favorite.created_at,
+      user: favorite.user
+        ? {
+            id: favorite.user.id,
+            email: favorite.user.email,
+          }
+        : null,
+      book: favorite.book
+        ? {
+            id: favorite.book.id,
+            title: favorite.book.title,
+            price: favorite.book.price,
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("GET /favorites/:id (ADMIN) error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to get favorite");
+  }
+});
+
+/**
+ * DELETE /favorites/:favoriteId
+ */
+router.delete("/:favoriteId", requireAuth, async (req, res) => {
+  const userId = req.auth.userId;
+  const favoriteId = parseInt(req.params.favoriteId, 10);
+
+  if (!Number.isInteger(favoriteId) || favoriteId <= 0) {
+    return sendError(res, 400, "BAD_REQUEST", "favoriteId must be positive integer");
+  }
+
+  try {
+    const deleted = await Favorites.destroy({ where: { id: favoriteId, user_id: userId } });
+    if (!deleted) return sendError(res, 404, "NOT_FOUND", "favorite not found");
+
+    return sendOk(res, { deleted: true });
   } catch (err) {
     console.error("DELETE /favorites/:favoriteId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete favorite");

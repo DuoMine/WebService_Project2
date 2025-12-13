@@ -239,7 +239,7 @@ export function initModels(sequelize) {
         defaultValue: DataTypes.NOW,
       },
       is_active: {
-        type: DataTypes.BOOLEAN,
+        type: DataTypes.TINYINT(1),
         allowNull: false,
         defaultValue: true,
       },
@@ -320,7 +320,7 @@ export function initModels(sequelize) {
         defaultValue: DataTypes.NOW,
       },
       is_active: {
-        type: DataTypes.BOOLEAN,
+        type: DataTypes.TINYINT(1),
         allowNull: false,
         defaultValue: true,
       },
@@ -444,11 +444,6 @@ export function initModels(sequelize) {
         allowNull: false,
         defaultValue: DataTypes.NOW,
       },
-      is_active: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
-      },
     },
     {
       tableName: "favorites",
@@ -532,6 +527,10 @@ export function initModels(sequelize) {
         type: DataTypes.BIGINT,
         allowNull: false,
       },
+      title_snapshot: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+      },
       quantity: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -544,11 +543,6 @@ export function initModels(sequelize) {
       total_amount: {
         type: DataTypes.INTEGER,
         allowNull: false,
-      },
-      status: {
-        type: DataTypes.ENUM("CREATED", "PAID", "CANCELLED", "REFUNDED"),
-        allowNull: false,
-        defaultValue: "CREATED",
       },
       created_at: {
         type: DataTypes.DATE,
@@ -579,7 +573,7 @@ export function initModels(sequelize) {
         type: DataTypes.BIGINT,
         allowNull: false,
       },
-      subtotal_items: {
+      subtotal_amount: {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
@@ -593,7 +587,7 @@ export function initModels(sequelize) {
         allowNull: false,
       },
       status: {
-        type: DataTypes.ENUM("CREATED", "PAID", "CANCELLED", "REFUNDED"),
+        type: DataTypes.ENUM("CREATED", "CANCELLED"),
         allowNull: false,
         defaultValue: "CREATED",
       },
@@ -631,9 +625,8 @@ export function initModels(sequelize) {
         defaultValue: DataTypes.NOW,
       },
       is_active: {
-        type: DataTypes.BOOLEAN,
+        type: DataTypes.TINYINT(1),
         allowNull: false,
-        defaultValue: true,
       },
     },
     {

@@ -18,7 +18,6 @@ import librariesRouter from "./routes/libraries.js";
 import likesRouter from "./routes/likes.js";
 import authorsRouter from "./routes/authors.js";
 import categoriesRouter from "./routes/categories.js";
-import paymentsRouter from "./routes/payments.js";
 import sellersRouter from "./routes/sellers.js";
 import cartsRouter from "./routes/carts.js";
 
@@ -57,7 +56,6 @@ app.use("/libraries", librariesRouter);
 app.use("/likes", likesRouter);
 app.use("/authors", authorsRouter);
 app.use("/categories", categoriesRouter);
-app.use("/payments", paymentsRouter);
 app.use("/sellers", sellersRouter);
 app.use("/carts", cartsRouter);
 
