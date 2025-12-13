@@ -166,9 +166,13 @@ bearerAuth: Authorization: Bearer <token>
 
 7) API 목록 요약 (엔드포인트 30+)
 
-아래는 “URL + Method” 기준으로 카운트됩니다. (쿼리 옵션은 개수로 따로 치지 않음)
+POSTMAN COLLECTION 기준
 
-Auth
+Health (1)
+
+GET /health
+
+Auth (4)
 
 POST /auth/register
 
@@ -178,7 +182,7 @@ POST /auth/refresh
 
 POST /auth/logout
 
-Users
+Users (8)
 
 GET /users/me
 
@@ -186,77 +190,156 @@ PATCH /users/me
 
 DELETE /users/me
 
-GET /users (ADMIN)
+GET /users
 
-POST /users (ADMIN)
+POST /users
 
-GET /users/{id} (ADMIN)
+GET /users/:id
 
-PATCH /users/{id} (ADMIN)
+PATCH /users/:id
 
-DELETE /users/{id} (ADMIN)
+DELETE /users/:id
 
-Sellers
+Authors (5)
 
-POST /sellers (ADMIN)
+GET /authors
+
+POST /authors
+
+GET /authors/:authorId
+
+PUT /authors/:authorId
+
+DELETE /authors/:authorId
+
+Categories (5)
+
+GET /categories
+
+POST /categories
+
+GET /categories/:categoryId
+
+PUT /categories/:categoryId
+
+DELETE /categories/:categoryId
+
+Books (6)
+
+GET /books
+
+POST /books
+
+GET /books/:bookId
+
+PUT /books/:bookId
+
+DELETE /books/:bookId
+
+GET /books/:bookId/reviews
+
+Carts (6)
+
+GET /carts
+
+POST /carts
+
+PATCH /carts/:itemId
+
+DELETE /carts/:itemId
+
+DELETE /carts
+
+POST /carts/checkout
+
+Sellers (5)
 
 GET /sellers
 
-GET /sellers/{sellerId}
+POST /sellers
 
-PUT /sellers/{sellerId} (ADMIN)
+GET /sellers/:sellerId
 
-DELETE /sellers/{sellerId} (ADMIN)
+PUT /sellers/:sellerId
 
-Authors
+DELETE /sellers/:sellerId
 
-(네 authors 라우트에 맞춰 동일 방식으로 나열)
+Libraries (4)
 
-Books
+GET /libraries
 
-(네 books 라우트에 맞춰 나열)
+POST /libraries
 
-Carts / Orders
+GET /libraries/:libraryId
 
-(네 carts, orders 라우트에 맞춰 나열)
+DELETE /libraries/:itemId
 
-Coupons
+Favorites (4)
 
-(네 coupons, user_coupons, order_coupons 라우트에 맞춰 나열)
+GET /favorites
 
-Reviews / Comments / Likes
+POST /favorites
+
+DELETE /favorites/:favoriteId
+
+GET /favorites/books
+
+Orders (5)
+
+POST /orders
+
+GET /orders
+
+GET /orders/detail/:id
+
+GET /orders/:userId
+
+DELETE /orders/:orderId
+
+Coupons (6)
+
+GET /coupons
+
+POST /coupons
+
+PATCH /coupons/:couponId
+
+DELETE /coupons/:couponId
+
+GET /coupons/my
+
+POST /coupons/issue
+
+Reviews (7)
 
 GET /reviews
 
 POST /reviews
 
-GET /reviews/{id}
+GET /reviews/:id
 
-PATCH /reviews/{id}
+PATCH /reviews/:id
 
-DELETE /reviews/{id}
+DELETE /reviews/:id
 
-GET /reviews/{reviewId}/comments
+POST /reviews/:reviewId/likes
 
-POST /reviews/{reviewId}/comments
+DELETE /reviews/:reviewId/likes
 
-PATCH /reviews/{reviewId}/comments/{commentId}
+Comments (6)
 
-DELETE /reviews/{reviewId}/comments/{commentId}
+GET /reviews/:reviewId/comments
 
-POST /reviews/{reviewId}/likes
+POST /reviews/:reviewId/comments
 
-DELETE /reviews/{reviewId}/likes
+PATCH /reviews/:reviewId/comments/:commentId
 
-POST /reviews/{reviewId}/comments/{commentId}/likes
+DELETE /reviews/:reviewId/comments/:commentId
 
-DELETE /reviews/{reviewId}/comments/{commentId}/likes
+POST /reviews/:reviewId/comments/:commentId/likes
 
-Health
+DELETE /reviews/:reviewId/comments/:commentId/likes
 
-GET /health
-
-✅ 실제 제출 전: 위 목록이 “실제 라우트 파일과 정확히 일치”하도록 정리해야 함(오타/누락 있으면 감점 포인트).
 
 8) 목록 조회 공통 규격(페이지네이션/검색/정렬)
 
@@ -313,8 +396,6 @@ TOO_MANY_REQUESTS
 
 INTERNAL_SERVER_ERROR
 
-DATABASE_ERROR (사용 중이면)
-
 10) 보안/성능
 
 비밀번호 해시: bcrypt
@@ -327,7 +408,7 @@ DB 인덱스 및 FK 적용 (ERD/DB-docs 기반)
 
 11) Postman
 
-위치: postman/<project>.postman_collection.json
+위치: docs/WebService.postman_collection.json
 
 환경 변수:
 
