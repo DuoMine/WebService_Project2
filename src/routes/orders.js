@@ -4,9 +4,10 @@ import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
 import { parseSort } from "../utils/sort.js";
+import { Op } from "sequelize";
 
 const router = Router();
-const { Orders, OrderItems, Books, sequelize, CartItems } = models;
+const { Orders, OrderItems, Books, sequelize, CartItems, UserCoupons, Coupons, OrderCoupons } = models;
 
 function parsePagination(query) {
   const page = Math.max(1, parseInt(query.page ?? "1", 10));
@@ -42,51 +43,6 @@ const itemSortMap = {
 };
 
 // NOTE: 주문은 cart_items 스냅샷 기반, 결제 개념 없음
-/**
- * 주문 생성 body 검증
- * body: { items: [{bookId, quantity}], couponId? }
- */
-function validateCreateOrderBody(body) {
-  const errors = {};
-  if (!body || typeof body !== "object") {
-    return { ok: false, errors: { body: "body is required" } };
-  }
-
-  const { items, couponId } = body;
-
-  if (!Array.isArray(items) || items.length === 0) {
-    errors.items = "items must be non-empty array";
-  } else {
-    items.forEach((it, idx) => {
-      const bookIdNum = Number(it?.bookId);
-      const qtyNum = Number(it?.quantity);
-
-      if (!Number.isInteger(bookIdNum) || bookIdNum <= 0) {
-        errors[`items[${idx}].bookId`] = "bookId must be positive integer";
-      }
-      if (!Number.isInteger(qtyNum) || qtyNum <= 0) {
-        errors[`items[${idx}].quantity`] = "quantity must be positive integer";
-      }
-    });
-  }
-
-  if (couponId != null && !Number.isInteger(Number(couponId))) {
-    errors.couponId = "couponId must be integer";
-  }
-
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-
-  return {
-    ok: true,
-    value: {
-      items: items.map((it) => ({
-        bookId: Number(it.bookId),
-        quantity: Number(it.quantity),
-      })),
-      couponId: couponId != null ? Number(couponId) : null,
-    },
-  };
-}
 
 /**
  * 7.1 주문 생성 (POST /orders)
@@ -95,8 +51,17 @@ function validateCreateOrderBody(body) {
  */
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
+
+  // ✅ 쿠폰 id (없으면 null)
+  const couponIdRaw = req.body?.coupon_id;
+  const couponId = couponIdRaw ? parseInt(couponIdRaw, 10) : null;
+  if (couponIdRaw !== undefined && (!Number.isFinite(couponId) || couponId <= 0)) {
+    return sendError(res, 400, "BAD_REQUEST", "invalid coupon_id");
+  }
+
   console.log("auth=", req.auth);
   console.log("userId=", req.auth?.userId);
+
   try {
     const result = await (sequelize ?? Orders.sequelize).transaction(async (t) => {
       // 1) 카트 아이템 로드 (활성만)
@@ -104,10 +69,15 @@ router.post("/", requireAuth, async (req, res) => {
         where: { cart_user_id: userId, is_active: 1 },
         transaction: t,
       });
+
       const total = await CartItems.count({ transaction: t });
       const mine = await CartItems.count({ where: { cart_user_id: userId }, transaction: t });
-      const mineActive = await CartItems.count({ where: { cart_user_id: userId, is_active: true }, transaction: t });
+      const mineActive = await CartItems.count({
+        where: { cart_user_id: userId, is_active: 1 }, // ✅ boolean 말고 1로 통일
+        transaction: t,
+      });
       console.log("cart_items total/mine/mineActive:", total, mine, mineActive);
+
       if (!cartItems || cartItems.length === 0) {
         throw Object.assign(new Error("cart is empty"), { code: "EMPTY_CART" });
       }
@@ -155,7 +125,51 @@ router.post("/", requireAuth, async (req, res) => {
         };
       });
 
-      const couponDiscount = 0;
+      // ✅ 3.5) 쿠폰 검증 + 할인 계산
+      let couponDiscount = 0;
+      let usedUserCouponId = null;
+      let appliedCouponId = null;
+
+      if (couponId) {
+        const now = new Date();
+
+        // 유저가 보유(ISSUED) + 쿠폰 유효(ACTIVE + 기간)인지 확인
+        const userCoupon = await UserCoupons.findOne({
+          where: {
+            user_id: userId,
+            coupon_id: couponId,
+            status: "ISSUED",
+          },
+          include: [
+            {
+              model: Coupons,
+              required: true,
+              where: {
+                status: "ACTIVE",
+                start_at: { [Op.lte]: now },
+                end_at: { [Op.gte]: now },
+              },
+            },
+          ],
+          transaction: t,
+          lock: t.LOCK.UPDATE, // ✅ 동시 사용 방지
+        });
+
+        if (!userCoupon) {
+          throw Object.assign(new Error("invalid or unusable coupon"), { code: "INVALID_COUPON" });
+        }
+
+        const rate = Number(userCoupon.coupon.discount_rate);
+        if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
+          throw new Error("invalid coupon discount_rate");
+        }
+
+        couponDiscount = Math.floor((subtotalAmount * rate) / 100);
+
+        usedUserCouponId = userCoupon.id;
+        appliedCouponId = userCoupon.coupon_id;
+      }
+
       const totalAmount = subtotalAmount - couponDiscount;
       if (totalAmount < 0) throw new Error("totalAmount cannot be negative");
 
@@ -164,7 +178,7 @@ router.post("/", requireAuth, async (req, res) => {
         {
           user_id: userId,
           subtotal_amount: subtotalAmount,
-          coupon_discount: couponDiscount,
+          coupon_discount: couponDiscount, // ✅ 적용
           total_amount: totalAmount,
           status: "CREATED",
           created_at: new Date(),
@@ -179,6 +193,32 @@ router.post("/", requireAuth, async (req, res) => {
         { transaction: t }
       );
 
+      // ✅ 5.5) 쿠폰 사용 기록 (order_coupons + user_coupons USED)
+      if (appliedCouponId) {
+        await OrderCoupons.create(
+          {
+            order_id: createdOrder.id,
+            coupon_id: appliedCouponId,
+            amount: couponDiscount,
+            created_at: new Date(),
+          },
+          { transaction: t }
+        );
+
+        // 마지막 방어: ISSUED인 것만 USED로 바꿈
+        const [updated] = await UserCoupons.update(
+          { status: "USED", used_at: new Date() },
+          {
+            where: { id: usedUserCouponId, status: "ISSUED" },
+            transaction: t,
+          }
+        );
+        if (updated !== 1) {
+          // 동시성/이상 케이스: 여기까지 왔는데 못 바꾸면 롤백시키는 게 맞음
+          throw new Error("failed to mark user coupon as USED");
+        }
+      }
+
       // 6) 카트 비우기: 활성 아이템 비활성화
       await CartItems.update(
         { is_active: 0, updated_at: new Date() },
@@ -191,6 +231,7 @@ router.post("/", requireAuth, async (req, res) => {
         couponDiscount,
         totalAmount,
         itemsCount: orderItemRows.length,
+        couponId: appliedCouponId, // ✅ 응답에 어떤 쿠폰 적용됐는지
       };
     });
 
@@ -201,6 +242,9 @@ router.post("/", requireAuth, async (req, res) => {
     }
     if (err?.code === "BOOK_NOT_FOUND") {
       return sendError(res, 400, "BAD_REQUEST", "some books not found");
+    }
+    if (err?.code === "INVALID_COUPON") {
+      return sendError(res, 400, "BAD_REQUEST", "invalid or unusable coupon");
     }
     console.error("POST /orders error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create order");

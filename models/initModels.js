@@ -484,6 +484,48 @@ export function initModels(sequelize) {
     }
   );
 
+  const UserCoupons = sequelize.define(
+    "user_coupons",
+    {
+      id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      user_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+      },
+      coupon_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+      },
+      status: {
+        type: DataTypes.ENUM("ISSUED", "USED"),
+        allowNull: false,
+        defaultValue: "ISSUED",
+      },
+      issued_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      used_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+    },
+    {
+      tableName: "user_coupons",
+      timestamps: false,
+      underscored: true,
+      indexes: [
+        { unique: true, fields: ["user_id", "coupon_id"] },
+        { fields: ["user_id", "status"] },
+      ],
+    }
+  );
+
   const OrderCoupons = sequelize.define(
     "order_coupons",
     {
@@ -1076,6 +1118,10 @@ export function initModels(sequelize) {
   OrderItems.belongsTo(Books, { foreignKey: "book_id", as: "book" });
   Books.hasMany(OrderItems, { foreignKey: "book_id", as: "orderItems" });
 
+  // UserCoupons (Users 1:N Usercoupons, coupons 1:N UserCoupons)
+  UserCoupons.belongsTo(Users, { foreignKey: "user_id" });
+  UserCoupons.belongsTo(Coupons, { foreignKey: "coupon_id" });
+
   // OrderCoupons (Orders 1:N OrderCoupons, Coupons 1:N OrderCoupons)
   OrderCoupons.belongsTo(Orders, { foreignKey: "order_id", as: "order" });
   Orders.hasMany(OrderCoupons, { foreignKey: "order_id", as: "orderCoupons" });
@@ -1124,5 +1170,6 @@ export function initModels(sequelize) {
     Settlements,
     UserRefreshTokens,
     Users,
+    UserCoupons,
   };
 }

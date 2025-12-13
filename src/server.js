@@ -20,6 +20,7 @@ import authorsRouter from "./routes/authors.js";
 import categoriesRouter from "./routes/categories.js";
 import sellersRouter from "./routes/sellers.js";
 import cartsRouter from "./routes/carts.js";
+import couponsRouter from "./routes/coupons.js"
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.use("/authors", authorsRouter);
 app.use("/categories", categoriesRouter);
 app.use("/sellers", sellersRouter);
 app.use("/carts", cartsRouter);
+app.use("/coupons", couponsRouter);
 
 // Swagger
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
