@@ -25,7 +25,7 @@ import couponsRouter from "./routes/coupons.js";
 import { globalLimiter, authLimiter } from "./middlewares/rateLimit.js";
 
 dotenv.config();
-
+const BOOT_TIME = new Date();
 export async function createApp() {
   const app = express();
   const require = createRequire(import.meta.url);
@@ -50,7 +50,8 @@ export async function createApp() {
     res.json({
       status: "OK",
       version: pkg.version,
-      time: new Date().toISOString(),
+      buildTime: process.env.BUILD_TIME,
+      startedAt: BOOT_TIME,
     });
   });
 

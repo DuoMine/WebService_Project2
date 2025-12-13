@@ -6,6 +6,11 @@ export const swaggerSpec = swaggerJsdoc({
     info: { title: "Online Bookstore API", version: "1.0.0" },
     components: {
       securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
         cookieAuth: {
           type: "apiKey",
           in: "cookie",
@@ -13,6 +18,6 @@ export const swaggerSpec = swaggerJsdoc({
         },
       },
     },
-  },
-  apis: ["./src/routes/*.js"],
+    apis: ["./src/routes/*.js"],
+  }
 });
