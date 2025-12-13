@@ -4,7 +4,9 @@ import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
-import { sendError } from "../utils/http.js";
+import { sendError, sendOk } from "../utils/http.js";
+import { parsePagination } from "../utils/pagination.js";
+import { parseSort } from "../utils/sort.js";
 
 const { Users } = models;
 const router = Router();
@@ -29,6 +31,11 @@ function toUserSafe(u) {
   };
 }
 
+function parseId(raw) {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 // ------------------------------
 // validation
 // ------------------------------
@@ -46,7 +53,9 @@ function validateAdminCreateBody(body) {
 
   const birth = Number(body.birth_year);
   if (!Number.isInteger(birth)) errors.birth_year = "birth_year must be integer";
-  else if (birth < 1900 || birth > new Date().getFullYear()) errors.birth_year = "birth_year must be between 1900 and current year";
+  else if (birth < 1900 || birth > new Date().getFullYear()) {
+    errors.birth_year = "birth_year must be between 1900 and current year";
+  }
 
   const allowedGender = ["MALE", "FEMALE", "UNKNOWN"];
   if (body.gender && !allowedGender.includes(body.gender)) {
@@ -56,12 +65,13 @@ function validateAdminCreateBody(body) {
   if (!body.region_code || typeof body.region_code !== "string") errors.region_code = "region_code is required";
   else if (body.region_code.length > 10) errors.region_code = "region_code must be <= 10 chars";
 
-  const allowedRole = ["USER", "ADMIN"]; // 필요하면 MANAGER 추가
+  const allowedRole = ["USER", "ADMIN"];
   if (body.role && !allowedRole.includes(body.role)) {
     errors.role = `role must be one of ${allowedRole.join(", ")}`;
   }
 
-  const allowedStatus = ["ACTIVE", "INACTIVE", "SUSPENDED"];
+  // 너 프로젝트 전체에서 status를 ACTIVE/DELETED로 쓰는 편이 안전
+  const allowedStatus = ["ACTIVE", "DELETED", "SUSPENDED"];
   if (body.status && !allowedStatus.includes(body.status)) {
     errors.status = `status must be one of ${allowedStatus.join(", ")}`;
   }
@@ -87,35 +97,49 @@ function validateAdminCreateBody(body) {
 function validateMePatchBody(body) {
   const errors = {};
 
-  // me에서는 email/role/status/password 변경은 막는 게 안전
-  if (body.email != null) errors.email = "email cannot be changed here";
-  if (body.role != null) errors.role = "role cannot be changed here";
-  if (body.status != null) errors.status = "status cannot be changed here";
-  if (body.password != null) errors.password = "use /users/me/password";
+  // me에서는 email/role/status/password 변경 금지
+  if (body.email !== undefined) errors.email = "email cannot be changed here";
+  if (body.role !== undefined) errors.role = "role cannot be changed here";
+  if (body.status !== undefined) errors.status = "status cannot be changed here";
+  if (body.password !== undefined) errors.password = "password change is not supported here";
 
-  if (body.name != null) {
-    if (typeof body.name !== "string") errors.name = "name must be string";
+  if (body.name !== undefined) {
+    if (body.name === null) errors.name = "name cannot be null";
+    else if (typeof body.name !== "string") errors.name = "name must be string";
     else if (body.name.length > 50) errors.name = "name must be <= 50 chars";
   }
 
-  if (body.region_code != null) {
-    if (typeof body.region_code !== "string") errors.region_code = "region_code must be string";
+  if (body.region_code !== undefined) {
+    if (body.region_code === null) errors.region_code = "region_code cannot be null";
+    else if (typeof body.region_code !== "string") errors.region_code = "region_code must be string";
     else if (body.region_code.length > 10) errors.region_code = "region_code must be <= 10 chars";
   }
 
   const allowedGender = ["MALE", "FEMALE", "UNKNOWN"];
-  if (body.gender != null && !allowedGender.includes(body.gender)) {
-    errors.gender = `gender must be one of ${allowedGender.join(", ")}`;
+  if (body.gender !== undefined) {
+    if (body.gender === null) {
+      // null 허용하려면 여기서 허용해도 됨. 지금은 금지.
+      errors.gender = "gender cannot be null";
+    } else if (!allowedGender.includes(body.gender)) {
+      errors.gender = `gender must be one of ${allowedGender.join(", ")}`;
+    }
   }
 
-  if (body.birth_year != null) {
-    const birth = Number(body.birth_year);
-    if (!Number.isInteger(birth)) errors.birth_year = "birth_year must be integer";
-    else if (birth < 1900 || birth > new Date().getFullYear()) errors.birth_year = "birth_year must be between 1900 and current year";
+  if (body.birth_year !== undefined) {
+    if (body.birth_year === null) errors.birth_year = "birth_year cannot be null";
+    else {
+      const birth = Number(body.birth_year);
+      if (!Number.isInteger(birth)) errors.birth_year = "birth_year must be integer";
+      else if (birth < 1900 || birth > new Date().getFullYear()) {
+        errors.birth_year = "birth_year must be between 1900 and current year";
+      }
+    }
   }
 
-  if (body.phone_number != null) {
-    if (typeof body.phone_number !== "string") errors.phone_number = "phone_number must be string";
+  if (body.phone_number !== undefined) {
+    if (body.phone_number === null) {
+      // null 허용
+    } else if (typeof body.phone_number !== "string") errors.phone_number = "phone_number must be string or null";
     else if (body.phone_number.length > 20) errors.phone_number = "phone_number must be <= 20 chars";
   }
 
@@ -124,11 +148,11 @@ function validateMePatchBody(body) {
   return {
     ok: true,
     value: {
-      name: body.name?.trim(),
-      region_code: body.region_code?.trim(),
-      gender: body.gender,
-      birth_year: body.birth_year != null ? Number(body.birth_year) : undefined,
-      phone_number: body.phone_number?.trim(),
+      name: body.name !== undefined ? body.name?.trim() : undefined,
+      region_code: body.region_code !== undefined ? body.region_code?.trim() : undefined,
+      gender: body.gender !== undefined ? body.gender : undefined,
+      birth_year: body.birth_year !== undefined ? Number(body.birth_year) : undefined,
+      phone_number: body.phone_number !== undefined ? (body.phone_number === null ? null : body.phone_number.trim()) : undefined,
     },
   };
 }
@@ -136,50 +160,63 @@ function validateMePatchBody(body) {
 function validateAdminPatchBody(body) {
   const errors = {};
 
-  // ADMIN은 더 넓게 수정 가능(하지만 email 중복, phone 중복 체크 필요)
-  if (body.email != null) {
-    if (typeof body.email !== "string") errors.email = "email must be string";
+  if (body.email !== undefined) {
+    if (body.email === null) errors.email = "email cannot be null";
+    else if (typeof body.email !== "string") errors.email = "email must be string";
     else if (body.email.length > 100) errors.email = "email must be <= 100 chars";
   }
 
-  if (body.name != null) {
-    if (typeof body.name !== "string") errors.name = "name must be string";
+  if (body.name !== undefined) {
+    if (body.name === null) errors.name = "name cannot be null";
+    else if (typeof body.name !== "string") errors.name = "name must be string";
     else if (body.name.length > 50) errors.name = "name must be <= 50 chars";
   }
 
-  if (body.region_code != null) {
-    if (typeof body.region_code !== "string") errors.region_code = "region_code must be string";
+  if (body.region_code !== undefined) {
+    if (body.region_code === null) errors.region_code = "region_code cannot be null";
+    else if (typeof body.region_code !== "string") errors.region_code = "region_code must be string";
     else if (body.region_code.length > 10) errors.region_code = "region_code must be <= 10 chars";
   }
 
   const allowedGender = ["MALE", "FEMALE", "UNKNOWN"];
-  if (body.gender != null && !allowedGender.includes(body.gender)) {
-    errors.gender = `gender must be one of ${allowedGender.join(", ")}`;
+  if (body.gender !== undefined) {
+    if (body.gender === null) errors.gender = "gender cannot be null";
+    else if (!allowedGender.includes(body.gender)) errors.gender = `gender must be one of ${allowedGender.join(", ")}`;
   }
 
-  if (body.birth_year != null) {
-    const birth = Number(body.birth_year);
-    if (!Number.isInteger(birth)) errors.birth_year = "birth_year must be integer";
-    else if (birth < 1900 || birth > new Date().getFullYear()) errors.birth_year = "birth_year must be between 1900 and current year";
+  if (body.birth_year !== undefined) {
+    if (body.birth_year === null) errors.birth_year = "birth_year cannot be null";
+    else {
+      const birth = Number(body.birth_year);
+      if (!Number.isInteger(birth)) errors.birth_year = "birth_year must be integer";
+      else if (birth < 1900 || birth > new Date().getFullYear()) {
+        errors.birth_year = "birth_year must be between 1900 and current year";
+      }
+    }
   }
 
-  if (body.phone_number != null) {
-    if (typeof body.phone_number !== "string") errors.phone_number = "phone_number must be string";
+  if (body.phone_number !== undefined) {
+    if (body.phone_number === null) {
+      // null 허용
+    } else if (typeof body.phone_number !== "string") errors.phone_number = "phone_number must be string or null";
     else if (body.phone_number.length > 20) errors.phone_number = "phone_number must be <= 20 chars";
   }
 
   const allowedRole = ["USER", "ADMIN"];
-  if (body.role != null && !allowedRole.includes(body.role)) {
-    errors.role = `role must be one of ${allowedRole.join(", ")}`;
+  if (body.role !== undefined) {
+    if (body.role === null) errors.role = "role cannot be null";
+    else if (!allowedRole.includes(body.role)) errors.role = `role must be one of ${allowedRole.join(", ")}`;
   }
 
-  const allowedStatus = ["ACTIVE", "INACTIVE", "SUSPENDED"];
-  if (body.status != null && !allowedStatus.includes(body.status)) {
-    errors.status = `status must be one of ${allowedStatus.join(", ")}`;
+  const allowedStatus = ["ACTIVE", "DELETED", "SUSPENDED"];
+  if (body.status !== undefined) {
+    if (body.status === null) errors.status = "status cannot be null";
+    else if (!allowedStatus.includes(body.status)) errors.status = `status must be one of ${allowedStatus.join(", ")}`;
   }
 
-  if (body.password != null) {
-    if (typeof body.password !== "string") errors.password = "password must be string";
+  if (body.password !== undefined) {
+    if (body.password === null) errors.password = "password cannot be null";
+    else if (typeof body.password !== "string") errors.password = "password must be string";
     else if (body.password.length < 8 || body.password.length > 64) errors.password = "password length must be 8~64";
   }
 
@@ -188,60 +225,110 @@ function validateAdminPatchBody(body) {
   return {
     ok: true,
     value: {
-      email: body.email?.trim(),
-      name: body.name?.trim(),
-      region_code: body.region_code?.trim(),
-      gender: body.gender,
-      birth_year: body.birth_year != null ? Number(body.birth_year) : undefined,
-      phone_number: body.phone_number?.trim(),
-      role: body.role,
-      status: body.status,
-      password: body.password,
+      email: body.email !== undefined ? body.email?.trim() : undefined,
+      name: body.name !== undefined ? body.name?.trim() : undefined,
+      region_code: body.region_code !== undefined ? body.region_code?.trim() : undefined,
+      gender: body.gender !== undefined ? body.gender : undefined,
+      birth_year: body.birth_year !== undefined ? Number(body.birth_year) : undefined,
+      phone_number: body.phone_number !== undefined ? (body.phone_number === null ? null : body.phone_number.trim()) : undefined,
+      role: body.role !== undefined ? body.role : undefined,
+      status: body.status !== undefined ? body.status : undefined,
+      password: body.password !== undefined ? body.password : undefined,
     },
   };
 }
+
+const ADMIN_USER_SORT_MAP = {
+  id: "id",
+  email: "email",
+  name: "name",
+  role: "role",
+  status: "status",
+  created_at: "created_at",
+  updated_at: "updated_at",
+};
 
 // ======================================================
 // ME (USER, ADMIN)
 // ======================================================
 
 /**
- * GET /users/me
+ * @openapi
+ * /users/me:
+ *   get:
+ *     tags: [Users]
+ *     summary: 내 정보 조회
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       200: { description: ok }
  */
 router.get("/me", requireAuth, async (req, res) => {
-  return res.json(toUserSafe(req.user));
+  const userId = req.auth.userId;
+
+  try {
+    const me = await Users.findOne({
+      where: { id: userId, deleted_at: { [Op.is]: null } },
+    });
+    if (!me) return sendError(res, 404, "USER_NOT_FOUND", "user not found");
+    return sendOk(res, toUserSafe(me));
+  } catch (err) {
+    console.error("GET /users/me error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to get me");
+  }
 });
 
 /**
- * PATCH /users/me
+ * @openapi
+ * /users/me:
+ *   patch:
+ *     tags: [Users]
+ *     summary: 내 정보 수정 (이메일/권한/상태/비번 변경 불가)
+ *     security: [{ cookieAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               phone_number: { type: string, nullable: true }
+ *               birth_year: { type: integer }
+ *               gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
+ *               region_code: { type: string }
+ *     responses:
+ *       200: { description: ok }
  */
 router.patch("/me", requireAuth, async (req, res) => {
   const { ok, value, errors } = validateMePatchBody(req.body);
   if (!ok) return sendError(res, 400, "VALIDATION_FAILED", "invalid request body", errors);
 
+  const userId = req.auth.userId;
+
   try {
     const me = await Users.findOne({
-      where: { id: req.user.id, deleted_at: { [Op.is]: null } },
+      where: { id: userId, deleted_at: { [Op.is]: null } },
     });
     if (!me) return sendError(res, 404, "USER_NOT_FOUND", "user not found");
 
     // phone 중복 체크
-    if (value.phone_number != null && value.phone_number !== me.phone_number) {
-      const dupPhone = await Users.findOne({
-        where: {
-          phone_number: value.phone_number,
-          deleted_at: { [Op.is]: null },
-          id: { [Op.ne]: me.id },
-        },
-      });
-      if (dupPhone) {
-        return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", {
-          phone_number: value.phone_number,
+    if (value.phone_number !== undefined && value.phone_number !== me.phone_number) {
+      if (value.phone_number !== null) {
+        const dupPhone = await Users.findOne({
+          where: {
+            phone_number: value.phone_number,
+            deleted_at: { [Op.is]: null },
+            id: { [Op.ne]: me.id },
+          },
         });
+        if (dupPhone) {
+          return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", {
+            phone_number: value.phone_number,
+          });
+        }
       }
     }
 
-    // undefined는 업데이트에서 제외
     const patch = {};
     for (const k of ["name", "region_code", "gender", "birth_year", "phone_number"]) {
       if (value[k] !== undefined) patch[k] = value[k];
@@ -249,7 +336,7 @@ router.patch("/me", requireAuth, async (req, res) => {
     patch.updated_at = new Date();
 
     await me.update(patch);
-    return res.json(toUserSafe(me));
+    return sendOk(res, toUserSafe(me));
   } catch (err) {
     console.error("PATCH /users/me error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update user");
@@ -257,17 +344,26 @@ router.patch("/me", requireAuth, async (req, res) => {
 });
 
 /**
- * DELETE /users/me  (soft delete)
+ * @openapi
+ * /users/me:
+ *   delete:
+ *     tags: [Users]
+ *     summary: 회원 탈퇴 (soft delete)
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       204: { description: no content }
  */
 router.delete("/me", requireAuth, async (req, res) => {
+  const userId = req.auth.userId;
+
   try {
     const me = await Users.findOne({
-      where: { id: req.user.id, deleted_at: { [Op.is]: null } },
+      where: { id: userId, deleted_at: { [Op.is]: null } },
     });
     if (!me) return sendError(res, 404, "USER_NOT_FOUND", "user not found");
 
     await me.update({
-      status: "INACTIVE",
+      status: "DELETED",
       deleted_at: new Date(),
       updated_at: new Date(),
     });
@@ -280,69 +376,81 @@ router.delete("/me", requireAuth, async (req, res) => {
 });
 
 // ======================================================
-// ADMIN (users/ 바로 사용)
+// ADMIN
 // ======================================================
 
 /**
- * GET /users  (ADMIN)
- * query: page, size, sort, keyword, role, status, region_code, show=active|all
+ * @openapi
+ * /users:
+ *   get:
+ *     tags: [Users]
+ *     summary: 유저 목록 조회 (ADMIN)
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, example: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, example: 20 }
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *       - in: query
+ *         name: role
+ *         schema: { type: string, enum: [USER, ADMIN] }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [ACTIVE, DELETED, SUSPENDED] }
+ *       - in: query
+ *         name: region_code
+ *         schema: { type: string }
+ *       - in: query
+ *         name: show
+ *         schema: { type: string, enum: [active, all], example: active }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, example: "created_at,DESC" }
+ *     responses:
+ *       200: { description: ok }
  */
 router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
+  const { page, size, offset } = parsePagination(req.query, { defaultSize: 20, maxSize: 200 });
+
+  const show = String(req.query.show ?? "active").toLowerCase(); // active|all
+  const keyword = String(req.query.keyword ?? "").trim();
+  const role = String(req.query.role ?? "").trim();
+  const status = String(req.query.status ?? "").trim();
+  const region_code = String(req.query.region_code ?? "").trim();
+
+  const where = {};
+
+  if (show !== "all") where.deleted_at = { [Op.is]: null };
+
+  if (keyword) {
+    where[Op.or] = [
+      { email: { [Op.like]: `%${keyword}%` } },
+      { name: { [Op.like]: `%${keyword}%` } },
+    ];
+  }
+
+  if (role) where.role = role;
+  if (status) where.status = status;
+  if (region_code) where.region_code = region_code;
+
+  const { order, sort } = parseSort(req.query.sort, ADMIN_USER_SORT_MAP, "id,ASC");
+
   try {
-    const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
-    const size = Math.min(200, Math.max(1, parseInt(req.query.size ?? "20", 10)));
-    const offset = (page - 1) * size;
-
-    const show = String(req.query.show ?? "active").toLowerCase(); // active|all
-    const keyword = (req.query.keyword ?? "").toString().trim();
-    const role = (req.query.role ?? "").toString().trim();
-    const status = (req.query.status ?? "").toString().trim();
-    const region_code = (req.query.region_code ?? "").toString().trim();
-
-    const where = {};
-
-    if (show !== "all") {
-      where.deleted_at = { [Op.is]: null };
-    }
-
-    if (keyword) {
-      where[Op.or] = [
-        { email: { [Op.like]: `%${keyword}%` } },
-        { name: { [Op.like]: `%${keyword}%` } },
-      ];
-    }
-
-    if (role) where.role = role;
-    if (status) where.status = status;
-    if (region_code) where.region_code = region_code;
-
-    // sort=created_at,DESC 같은 형태
-    const sort = (req.query.sort ?? "id,ASC").toString();
-    const [sortFieldRaw, sortDirRaw] = sort.split(",");
-    const sortField = (sortFieldRaw || "id").trim();
-    const sortDir = (sortDirRaw || "ASC").trim().toUpperCase() === "DESC" ? "DESC" : "ASC";
-
-    const allowedSort = new Set(["id", "created_at", "updated_at", "email", "name", "role", "status"]);
-    const order = [[allowedSort.has(sortField) ? sortField : "id", sortDir]];
-
     const { rows, count } = await Users.findAndCountAll({
       where,
       order,
       limit: size,
       offset,
-      attributes: { exclude: ["password_hash"] },
     });
 
-    const totalElements = count;
-    const totalPages = Math.ceil(totalElements / size);
-
-    return res.json({
-      content: rows.map(toUserSafe),
-      page,
-      size,
-      totalElements,
-      totalPages,
-      sort: `${allowedSort.has(sortField) ? sortField : "id"},${sortDir}`,
+    return sendOk(res, {
+      items: rows.map(toUserSafe),
+      meta: { page, size, total: count, sort },
     });
   } catch (err) {
     console.error("GET /users error:", err);
@@ -351,7 +459,21 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * POST /users (ADMIN)
+ * @openapi
+ * /users:
+ *   post:
+ *     tags: [Users]
+ *     summary: 유저 생성 (ADMIN)
+ *     security: [{ cookieAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password, name, birth_year, region_code]
+ *     responses:
+ *       201: { description: created }
  */
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { ok, value, errors } = validateAdminCreateBody(req.body);
@@ -390,9 +512,10 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
       status: value.status,
       created_at: new Date(),
       updated_at: new Date(),
+      deleted_at: null,
     });
 
-    return res.status(201).json(toUserSafe(user));
+    return sendOk(res, toUserSafe(user), 201);
   } catch (err) {
     console.error("POST /users error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create user");
@@ -400,13 +523,23 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * GET /users/:id (ADMIN)
+ * @openapi
+ * /users/{id}:
+ *   get:
+ *     tags: [Users]
+ *     summary: 유저 상세 조회 (ADMIN)
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: ok }
  */
 router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return sendError(res, 400, "INVALID_QUERY_PARAM", "invalid user id");
-  }
+  const id = parseId(req.params.id);
+  if (!id) return sendError(res, 400, "BAD_REQUEST", "invalid user id");
 
   try {
     const user = await Users.findOne({
@@ -414,7 +547,8 @@ router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
       attributes: { exclude: ["password_hash"] },
     });
     if (!user) return sendError(res, 404, "USER_NOT_FOUND", "user not found");
-    return res.json(toUserSafe(user));
+
+    return sendOk(res, toUserSafe(user));
   } catch (err) {
     console.error("GET /users/:id error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to get user");
@@ -422,13 +556,29 @@ router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * PATCH /users/:id (ADMIN)
+ * @openapi
+ * /users/{id}:
+ *   patch:
+ *     tags: [Users]
+ *     summary: 유저 수정 (ADMIN)
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200: { description: ok }
  */
 router.patch("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return sendError(res, 400, "INVALID_QUERY_PARAM", "invalid user id");
-  }
+  const id = parseId(req.params.id);
+  if (!id) return sendError(res, 400, "BAD_REQUEST", "invalid user id");
 
   const { ok, value, errors } = validateAdminPatchBody(req.body);
   if (!ok) return sendError(res, 400, "VALIDATION_FAILED", "invalid request body", errors);
@@ -439,8 +589,7 @@ router.patch("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
     });
     if (!user) return sendError(res, 404, "USER_NOT_FOUND", "user not found");
 
-    // email 중복 체크
-    if (value.email != null && value.email !== user.email) {
+    if (value.email !== undefined && value.email !== user.email) {
       const dup = await Users.findOne({
         where: {
           email: value.email,
@@ -448,24 +597,23 @@ router.patch("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
           id: { [Op.ne]: id },
         },
       });
-      if (dup) {
-        return sendError(res, 409, "DUPLICATE_RESOURCE", "email already in use", { email: value.email });
-      }
+      if (dup) return sendError(res, 409, "DUPLICATE_RESOURCE", "email already in use", { email: value.email });
     }
 
-    // phone 중복 체크
-    if (value.phone_number != null && value.phone_number !== user.phone_number) {
-      const dupPhone = await Users.findOne({
-        where: {
-          phone_number: value.phone_number,
-          deleted_at: { [Op.is]: null },
-          id: { [Op.ne]: id },
-        },
-      });
-      if (dupPhone) {
-        return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", {
-          phone_number: value.phone_number,
+    if (value.phone_number !== undefined && value.phone_number !== user.phone_number) {
+      if (value.phone_number !== null) {
+        const dupPhone = await Users.findOne({
+          where: {
+            phone_number: value.phone_number,
+            deleted_at: { [Op.is]: null },
+            id: { [Op.ne]: id },
+          },
         });
+        if (dupPhone) {
+          return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", {
+            phone_number: value.phone_number,
+          });
+        }
       }
     }
 
@@ -474,15 +622,14 @@ router.patch("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
       if (value[k] !== undefined) patch[k] = value[k];
     }
 
-    // password 변경도 admin이 가능하게 할거면 여기서 처리
-    if (value.password != null) {
+    if (value.password !== undefined) {
       patch.password_hash = await bcrypt.hash(value.password, 10);
     }
 
     patch.updated_at = new Date();
 
     await user.update(patch);
-    return res.json(toUserSafe(user));
+    return sendOk(res, toUserSafe(user));
   } catch (err) {
     console.error("PATCH /users/:id error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update user");
@@ -490,13 +637,23 @@ router.patch("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * DELETE /users/:id (ADMIN) soft delete
+ * @openapi
+ * /users/{id}:
+ *   delete:
+ *     tags: [Users]
+ *     summary: 유저 삭제(soft) (ADMIN)
+ *     security: [{ cookieAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       204: { description: no content }
  */
 router.delete("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return sendError(res, 400, "INVALID_QUERY_PARAM", "invalid user id");
-  }
+  const id = parseId(req.params.id);
+  if (!id) return sendError(res, 400, "BAD_REQUEST", "invalid user id");
 
   try {
     const user = await Users.findOne({

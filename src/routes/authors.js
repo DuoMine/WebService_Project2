@@ -26,6 +26,52 @@ function parseId(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Authors
+ *     description: 작가 API
+ */
+
+/**
+ * @openapi
+ * /authors:
+ *   post:
+ *     tags: [Authors]
+ *     summary: 작가 등록 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [penName]
+ *             properties:
+ *               penName:
+ *                 type: string
+ *                 example: 김작가
+ *               birthYear:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1998
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 장편소설 위주로 집필
+ *     responses:
+ *       200:
+ *         description: 등록 성공
+ *       400:
+ *         description: VALIDATION_FAILED
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       500:
+ *         description: failed to create author
+ */
 // ----------------------------
 // POST /authors (ADMIN) - 작가 생성
 // body: { penName, birthYear?, description? }
@@ -72,6 +118,34 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /authors:
+ *   get:
+ *     tags: [Authors]
+ *     summary: 작가 목록 조회 (공개)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *         description: pen_name / description LIKE 검색
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string }
+ *         description: "id|createdAt|penName|birthYear + ,ASC|DESC (예: createdAt,DESC)"
+ *         example: createdAt,DESC
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       500:
+ *         description: failed to get authors
+ */
 // ----------------------------
 // GET /authors - 목록 + 검색 (공개)
 // query: page, size, q, sort
@@ -88,11 +162,7 @@ router.get("/", async (req, res) => {
     ];
   }
 
-  const { order, sort } = parseSort(
-    req.query.sort,
-    AUTHOR_SORT_MAP,
-    "createdAt,DESC"
-  );
+  const { order, sort } = parseSort(req.query.sort, AUTHOR_SORT_MAP, "createdAt,DESC");
 
   try {
     const { rows, count } = await Authors.findAndCountAll({
@@ -125,6 +195,27 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /authors/{authorId}:
+ *   get:
+ *     tags: [Authors]
+ *     summary: 작가 상세 조회 (공개)
+ *     parameters:
+ *       - in: path
+ *         name: authorId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       400:
+ *         description: invalid authorId
+ *       404:
+ *         description: author not found
+ *       500:
+ *         description: failed to get author
+ */
 // ----------------------------
 // GET /authors/:authorId - 상세 (공개)
 // ----------------------------
@@ -150,7 +241,51 @@ router.get("/:authorId", async (req, res) => {
   }
 });
 
-
+/**
+ * @openapi
+ * /authors/{authorId}:
+ *   put:
+ *     tags: [Authors]
+ *     summary: 작가 수정 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: authorId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               penName:
+ *                 type: string
+ *                 example: 김작가(개정)
+ *               birthYear:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2001
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 소개 수정
+ *     responses:
+ *       200:
+ *         description: 수정 성공
+ *       400:
+ *         description: VALIDATION_FAILED
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       404:
+ *         description: author not found
+ *       500:
+ *         description: failed to update author
+ */
 // ----------------------------
 // PUT /authors/:authorId (ADMIN) - 수정
 // body: { penName?, birthYear?, description? }
@@ -192,8 +327,7 @@ router.put("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => 
 
     if (penName !== undefined) author.pen_name = penName.trim();
     if (birthYear !== undefined) {
-      author.birth_year =
-        birthYear === null || birthYear === "" ? null : parseInt(birthYear, 10);
+      author.birth_year = birthYear === null || birthYear === "" ? null : parseInt(birthYear, 10);
     }
     if (description !== undefined) author.description = description?.trim() || null;
 
@@ -206,6 +340,33 @@ router.put("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => 
   }
 });
 
+/**
+ * @openapi
+ * /authors/{authorId}:
+ *   delete:
+ *     tags: [Authors]
+ *     summary: 작가 삭제 (ADMIN, hard delete)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: authorId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 삭제 성공
+ *       400:
+ *         description: invalid authorId
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       404:
+ *         description: author not found
+ *       500:
+ *         description: failed to delete author
+ */
 // ----------------------------
 // DELETE /authors/:authorId (ADMIN) - 삭제 (hard delete)
 // ----------------------------

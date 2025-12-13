@@ -19,6 +19,51 @@ const BOOK_SORT_FIELDS = {
   publication_date: "publication_date",
 };
 
+/**
+ * @openapi
+ * /books:
+ *   post:
+ *     tags: [Books]
+ *     summary: 도서 등록 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, publisher, summary, isbn, price, publicationDate, sellerId, authorIds, categoryIds]
+ *             properties:
+ *               title: { type: string, example: "책 제목" }
+ *               publisher: { type: string, example: "출판사" }
+ *               summary: { type: string, example: "요약" }
+ *               isbn: { type: string, example: "9781234567890" }
+ *               price: { type: integer, example: 15000 }
+ *               publicationDate: { type: string, format: date, example: "2024-01-01" }
+ *               sellerId: { type: integer, example: 1 }
+ *               authorIds:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: [1, 2]
+ *               categoryIds:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: [3, 4]
+ *     responses:
+ *       201:
+ *         description: 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 bookId: { type: integer, example: 10 }
+ *       400:
+ *         description: validation failed
+ *       409:
+ *         description: duplicate resource (isbn)
+ */
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const {
     title,
@@ -101,26 +146,78 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
     await t.commit();
     return sendOk(res, { bookId: book.id }, 201);
   } catch (err) {
-    // ✅ (2) 레이스 컨디션 대비: 실제 unique constraint 에러도 409로
     if (!t.finished) await t.rollback();
-
-    if (err instanceof UniqueConstraintError) {
-      // isbn unique 위반이 대부분일 거라 isbn로 내림
-      return sendError(res, 409, "DUPLICATE_RESOURCE", "duplicate resource", {
-        // Sequelize 에러에 fields가 있으면 그걸 쓰고, 없으면 isbn 고정
-        ...(err.fields ? err.fields : { isbn }),
-      });
-    }
 
     console.error("POST /books error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create book");
   }
 });
 
-// ---------------------------------------------------------------------
-// 2.2 도서 목록 조회 (GET /books)
-// query: page, size, sort, categoryId, query, sellerId
-// ---------------------------------------------------------------------
+/**
+ * @openapi
+ * /books:
+ *   get:
+ *     tags: [Books]
+ *     summary: 도서 목록 조회
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: sort
+ *         description: "허용: id,title,price,publication_date (예: price,DESC)"
+ *         schema: { type: string, example: "id,ASC" }
+ *       - in: query
+ *         name: categoryId
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: sellerId
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: query
+ *         description: "title/publisher LIKE 검색"
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       title: { type: string }
+ *                       price: { type: integer }
+ *                       seller:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id: { type: integer }
+ *                           businessName: { type: string }
+ *                           email: { type: string }
+ *                       authors:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id: { type: integer }
+ *                             penName: { type: string }
+ *                 page: { type: integer }
+ *                 size: { type: integer }
+ *                 totalElements: { type: integer }
+ *                 totalPages: { type: integer }
+ *                 sort: { type: string }
+ *       400:
+ *         description: invalid query
+ */
 router.get("/", async (req, res) => {
   try {
     const { page, size, offset } = parsePagination(req.query);
@@ -149,20 +246,17 @@ router.get("/", async (req, res) => {
     }
 
     const include = [
-      // ✅ alias 반드시 맞춰야 함 (as: "seller")
       {
         model: Sellers,
         as: "seller",
         attributes: ["id", "business_name", "email"],
       },
-      // ✅ as: "authors"
       {
         model: Authors,
         as: "authors",
         attributes: ["id", "pen_name"],
         through: { attributes: [] },
       },
-      // ✅ as: "categories"
       categoryId
         ? {
             model: Categories,
@@ -194,8 +288,6 @@ router.get("/", async (req, res) => {
       id: b.id,
       title: b.title,
       price: b.price,
-
-      // ✅ b.Sellers ❌  /  b.seller ✅
       seller: b.seller
         ? {
             id: b.seller.id,
@@ -203,15 +295,10 @@ router.get("/", async (req, res) => {
             email: b.seller.email,
           }
         : null,
-
-      // ✅ b.Authors ❌  /  b.authors ✅
       authors: (b.authors || []).map((a) => ({
         id: a.id,
         penName: a.pen_name,
       })),
-
-      // 필요하면 목록에도 categories 붙일 수 있음
-      // categories: (b.categories || []).map((c) => ({ id: c.id, name: c.name })),
     }));
 
     return sendOk(res, {
@@ -228,9 +315,25 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------
-// 2.3 도서 상세 조회 (GET /books/:bookId)
-// ---------------------------------------------------------------------
+/**
+ * @openapi
+ * /books/{bookId}:
+ *   get:
+ *     tags: [Books]
+ *     summary: 도서 상세 조회
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: invalid bookId
+ *       404:
+ *         description: book not found
+ */
 router.get("/:bookId", async (req, res) => {
   try {
     const bookId = parseInt(req.params.bookId, 10);
@@ -269,7 +372,6 @@ router.get("/:bookId", async (req, res) => {
       isbn: book.isbn,
       price: book.price,
       publicationDate: book.publication_date,
-
       seller: book.seller
         ? {
             id: book.seller.id,
@@ -278,7 +380,6 @@ router.get("/:bookId", async (req, res) => {
             phoneNumber: book.seller.phone_number,
           }
         : null,
-
       authors: (book.authors || []).map((a) => ({
         id: a.id,
         penName: a.pen_name,
@@ -294,10 +395,37 @@ router.get("/:bookId", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------
-// 2.4 도서 수정 (PUT /books/:bookId) - ADMIN
-// body: { price?, summary?, sellerId? }
-// ---------------------------------------------------------------------
+/**
+ * @openapi
+ * /books/{bookId}:
+ *   put:
+ *     tags: [Books]
+ *     summary: 도서 수정 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               price: { type: integer, example: 12000 }
+ *               summary: { type: string, example: "요약 수정" }
+ *               sellerId: { type: integer, example: 2 }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: validation failed
+ *       404:
+ *         description: book not found
+ */
 router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   try {
     const bookId = parseInt(req.params.bookId, 10);
@@ -348,10 +476,39 @@ router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------
-// 도서 카테고리 교체 (PUT /books/:bookId/categories) - ADMIN
-// body: { categoryIds[] }
-// ---------------------------------------------------------------------
+/**
+ * @openapi
+ * /books/{bookId}/categories:
+ *   put:
+ *     tags: [Books]
+ *     summary: 도서 카테고리 교체 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [categoryIds]
+ *             properties:
+ *               categoryIds:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: [1, 2, 3]
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: validation failed
+ *       404:
+ *         description: book not found
+ */
 router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const bookId = parseInt(req.params.bookId, 10);
   if (!bookId) return sendError(res, 400, "BAD_REQUEST", "invalid bookId");
@@ -414,9 +571,27 @@ router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req,
   }
 });
 
-// ---------------------------------------------------------------------
-// 2.5 도서 삭제 (DELETE /books/:bookId) - ADMIN / Soft Delete
-// ---------------------------------------------------------------------
+/**
+ * @openapi
+ * /books/{bookId}:
+ *   delete:
+ *     tags: [Books]
+ *     summary: 도서 삭제 (ADMIN, Soft Delete)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: invalid bookId
+ *       404:
+ *         description: book not found
+ */
 router.delete("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   try {
     const bookId = parseInt(req.params.bookId, 10);

@@ -8,6 +8,37 @@ import { parsePagination } from "../utils/pagination.js";
 const router = Router();
 const { Favorites, Books } = models;
 
+/**
+ * @openapi
+ * /favorites:
+ *   post:
+ *     tags: [Favorites]
+ *     summary: 찜(즐겨찾기) 추가
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [bookId]
+ *             properties:
+ *               bookId:
+ *                 type: integer
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: 생성 성공
+ *       400:
+ *         description: bookId must be positive integer
+ *       404:
+ *         description: book not found
+ *       409:
+ *         description: already favorited
+ *       500:
+ *         description: failed to add favorite
+ */
 // ----------------------------
 // POST /favorites
 // body: { bookId }
@@ -24,8 +55,6 @@ router.post("/", requireAuth, async (req, res) => {
     const book = await Books.findByPk(bookId);
     if (!book) return sendError(res, 404, "NOT_FOUND", "book not found");
 
-    // 1) (권장) DB에 UNIQUE(user_id, book_id) 있다면 그냥 create하고 중복이면 409
-    // 2) 지금은 안전하게 사전 체크도 유지 (레이스컨디션은 완벽히 못 막음)
     const existing = await Favorites.findOne({ where: { user_id: userId, book_id: bookId } });
     if (existing) {
       return sendError(res, 409, "CONFLICT", "already favorited");
@@ -38,18 +67,43 @@ router.post("/", requireAuth, async (req, res) => {
       updated_at: new Date(),
     });
 
-    return sendOk(res, {
-      id: fav.id,
-      userId: fav.user_id,
-      bookId: fav.book_id,
-      createdAt: fav.created_at,
-    }, 201);
+    return sendOk(
+      res,
+      {
+        id: fav.id,
+        userId: fav.user_id,
+        bookId: fav.book_id,
+        createdAt: fav.created_at,
+      },
+      201
+    );
   } catch (err) {
     console.error("POST /favorites error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to add favorite");
   }
 });
 
+/**
+ * @openapi
+ * /favorites:
+ *   get:
+ *     tags: [Favorites]
+ *     summary: 내 찜 목록 조회 (페이지네이션)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       500:
+ *         description: failed to list favorites
+ */
 /**
  * GET /favorites?page=1&size=10
  */
@@ -92,6 +146,29 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /favorites/{id}:
+ *   get:
+ *     tags: [Favorites]
+ *     summary: 찜 단건 조회 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: id must be positive integer
+ *       404:
+ *         description: favorite not found
+ *       500:
+ *         description: failed to get favorite
+ */
 /**
  * GET /favorites/:id (ADMIN)
  */
@@ -145,6 +222,29 @@ router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /favorites/{favoriteId}:
+ *   delete:
+ *     tags: [Favorites]
+ *     summary: 내 찜 삭제
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: favoriteId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 삭제 성공
+ *       400:
+ *         description: favoriteId must be positive integer
+ *       404:
+ *         description: favorite not found
+ *       500:
+ *         description: failed to delete favorite
+ */
 /**
  * DELETE /favorites/:favoriteId
  */

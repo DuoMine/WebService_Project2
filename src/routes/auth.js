@@ -22,6 +22,29 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+// "900", "900s", "15m" 같은 값을 seconds로
+function parseExpiresToSeconds(raw, fallbackSeconds) {
+  const s = String(raw ?? "").trim();
+  if (!s) return fallbackSeconds;
+
+  // pure number
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+
+  // number + unit
+  const m = s.match(/^(\d+)\s*([smhd])$/i);
+  if (!m) return fallbackSeconds;
+
+  const n = parseInt(m[1], 10);
+  const unit = m[2].toLowerCase();
+  if (unit === "s") return n;
+  if (unit === "m") return n * 60;
+  if (unit === "h") return n * 60 * 60;
+  if (unit === "d") return n * 24 * 60 * 60;
+  return fallbackSeconds;
+}
+
+const ACCESS_EXPIRES_SECONDS = parseExpiresToSeconds(process.env.JWT_ACCESS_EXPIRES_IN, 900);
+
 // ----------------------------
 // 회원가입 검증
 // ----------------------------
@@ -80,6 +103,47 @@ function validateRegisterBody(body) {
   };
 }
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Auth
+ *     description: 인증/토큰 API
+ *
+ * components:
+ *   securitySchemes:
+ *     cookieAuth:
+ *       type: apiKey
+ *       in: cookie
+ *       name: access_token
+ */
+
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 회원가입
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password, name, birth_year, region_code]
+ *             properties:
+ *               email: { type: string, example: user1@example.com }
+ *               password: { type: string, example: "password1234" }
+ *               name: { type: string, example: "사용자1" }
+ *               phone_number: { type: string, nullable: true, example: "01012345678" }
+ *               birth_year: { type: integer, example: 2000 }
+ *               gender: { type: string, enum: [MALE, FEMALE, UNKNOWN], example: UNKNOWN }
+ *               region_code: { type: string, example: "KR-11" }
+ *     responses:
+ *       201: { description: created }
+ *       400: { description: VALIDATION_FAILED }
+ *       409: { description: DUPLICATE_RESOURCE }
+ *       500: { description: failed to register user }
+ */
 // ----------------------------
 // POST /auth/register
 // ----------------------------
@@ -165,6 +229,38 @@ function validateLoginBody(body) {
   return { ok: true, value: { email: body.email.trim(), password: body.password } };
 }
 
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 로그인 (쿠키 세팅 + 토큰 JSON 반환)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, example: user1@example.com }
+ *               password: { type: string, example: "password1234" }
+ *     responses:
+ *       200:
+ *         description: ok
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token_type: { type: string, example: "Bearer" }
+ *                 access_token: { type: string }
+ *                 refresh_token: { type: string }
+ *                 expires_in: { type: integer, example: 900 }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: invalid email or password }
+ *       500: { description: failed to login }
+ */
 // ----------------------------
 // POST /auth/login
 // ----------------------------
@@ -211,7 +307,7 @@ router.post("/login", async (req, res) => {
       token_type: "Bearer",
       access_token: accessToken,
       refresh_token: refreshToken,
-      expires_in: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
+      expires_in: ACCESS_EXPIRES_SECONDS,
     });
   } catch (err) {
     console.error("login error:", err);
@@ -219,6 +315,34 @@ router.post("/login", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 액세스 토큰 재발급 (refresh_token은 쿠키 또는 body)
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refresh_token: { type: string }
+ *     responses:
+ *       200:
+ *         description: ok
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token_type: { type: string, example: "Bearer" }
+ *                 access_token: { type: string }
+ *                 expires_in: { type: integer, example: 900 }
+ *       400: { description: refresh_token is required }
+ *       401: { description: invalid or expired refresh token }
+ */
 // ----------------------------
 // POST /auth/refresh
 // ----------------------------
@@ -257,22 +381,30 @@ router.post("/refresh", async (req, res) => {
     // 새 Access Token 발급
     const accessToken = signAccessToken(user);
 
-    // 쿠키 갱신: access + (과제용으로 refresh도 동일값 재세팅해서 만료 연장 느낌 주기)
+    // 쿠키 갱신
     res.cookie(ACCESS_COOKIE_NAME, accessToken, getAccessCookieOptions());
     res.cookie(REFRESH_COOKIE_NAME, refresh_token, getRefreshCookieOptions());
 
     return res.json({
       token_type: "Bearer",
       access_token: accessToken,
-      expires_in: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || "900", 10) || 900,
+      expires_in: ACCESS_EXPIRES_SECONDS,
     });
   } catch (err) {
-    // refresh 자체가 만료/위조/형식오류인 경우
     console.error("refresh error:", err);
     return sendError(res, 401, "TOKEN_EXPIRED", "invalid or expired refresh token");
   }
 });
 
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 로그아웃 (refresh revoke + 쿠키 삭제)
+ *     responses:
+ *       204: { description: no content }
+ */
 // ----------------------------
 // POST /auth/logout
 // ----------------------------

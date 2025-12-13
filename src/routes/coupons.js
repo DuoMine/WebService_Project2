@@ -29,7 +29,7 @@ const USER_COUPON_SORT_MAP = {
   status: "status",
 };
 
-/**쿠폰 생성 검증 */
+/** 쿠폰 생성 검증 */
 function validateCouponCreate(body) {
   const errors = {};
   const rate = body?.discount_rate;
@@ -78,77 +78,62 @@ function validateAssignBody(body) {
 }
 
 /**
- * 유저 쿠폰 할당 (ADMIN)
- * POST /coupons/:couponId/assign
- * body: { user_ids: [1,2,3] }
+ * @openapi
+ * tags:
+ *   - name: Coupons
+ *     description: 쿠폰/유저쿠폰 관리 API
  *
- * - 존재하는 유저만 지급
- * - 이미 지급된 건 스킵(UNIQUE 때문에)
- * - 결과로 assigned / skipped / invalid 반환
+ * components:
+ *   securitySchemes:
+ *     cookieAuth:
+ *       type: apiKey
+ *       in: cookie
+ *       name: access_token
  */
-router.post("/:couponId", requireAuth, requireRole("ADMIN"), async (req, res) => {
-  const couponId = parseId(req.params.couponId);
-  if (!couponId) return sendError(res, 400, "BAD_REQUEST", "invalid couponId");
-
-  const errors = validateAssignBody(req.body);
-  if (Object.keys(errors).length) {
-    return sendError(res, 400, "BAD_REQUEST", "invalid body", { errors });
-  }
-
-  const userIds = [...new Set(req.body.user_ids.map((x) => parseInt(x, 10)))].filter((n) => n > 0);
-
-  try {
-    const coupon = await Coupons.findByPk(couponId);
-    if (!coupon) return sendError(res, 404, "NOT_FOUND", "coupon not found");
-
-    // 존재하는 유저만 추림
-    const users = await Users.findAll({
-      where: { id: { [Op.in]: userIds } },
-      attributes: ["id"],
-    });
-    const validIds = new Set(users.map((u) => u.id));
-    const invalid = userIds.filter((id) => !validIds.has(id));
-    const targets = userIds.filter((id) => validIds.has(id));
-
-    // 이미 지급된 것 조회
-    const existed = await UserCoupons.findAll({
-      where: { coupon_id: couponId, user_id: { [Op.in]: targets } },
-      attributes: ["user_id"],
-    });
-    const existedSet = new Set(existed.map((x) => x.user_id));
-
-    const toInsert = targets.filter((id) => !existedSet.has(id));
-
-    const now = new Date();
-    if (toInsert.length > 0) {
-      await UserCoupons.bulkCreate(
-        toInsert.map((uid) => ({
-          user_id: uid,
-          coupon_id: couponId,
-          status: "ISSUED",
-          issued_at: now,
-        })),
-        { validate: true }
-      );
-    }
-
-    return sendOk(res, {
-      coupon_id: couponId,
-      assigned: toInsert,
-      skipped: targets.filter((id) => existedSet.has(id)),
-      invalid,
-    });
-  } catch (err) {
-    console.error("POST /coupons/:couponId/assign error:", err);
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to assign coupon");
-  }
-});
 
 /**
- * 쿠폰 POST (ADMIN)
- * POST /coupons
- * body: { name?, discount_rate, start_at, end_at, status? }
+ * @openapi
+ * /coupons:
+ *   post:
+ *     tags: [Coupons]
+ *     summary: 쿠폰 생성 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [discount_rate, start_at, end_at]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 겨울 10% 할인
+ *               discount_rate:
+ *                 type: integer
+ *                 example: 10
+ *               start_at:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2025-12-01T00:00:00.000Z
+ *               end_at:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2025-12-31T23:59:59.000Z
+ *               status:
+ *                 type: string
+ *                 enum: [SCHEDULED, ACTIVE, PAUSED, ENDED]
+ *                 example: SCHEDULED
+ *     responses:
+ *       201: { description: 생성 성공 }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: failed to create coupon }
  */
+// 쿠폰 생성 (ADMIN)
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const errors = validateCouponCreate(req.body);
   if (Object.keys(errors).length) {
@@ -188,80 +173,41 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * 유저 쿠폰 확인
- * GET /coupons/:userId?show=issued|all
- *
- * - ADMIN: 누구든 조회 가능
+ * @openapi
+ * /coupons:
+ *   get:
+ *     tags: [Coupons]
+ *     summary: 쿠폰 목록 조회 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [SCHEDULED, ACTIVE, PAUSED, ENDED] }
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string }
+ *         example: created_at,DESC
+ *     responses:
+ *       200: { description: 조회 성공 }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: failed to list coupons }
  */
-router.get("/:userId", requireAuth, async (req, res) => {
-  const userId = parseId(req.params.userId);
-  if (!userId) return sendError(res, 400, "BAD_REQUEST", "invalid userId");
-
-  const auth = req.auth;
-  const isAdmin = auth?.role === "ADMIN";
-  if (!isAdmin && auth?.userId !== userId) {
-    return sendError(res, 403, "FORBIDDEN", "cannot view other user's coupons");
-  }
-
-  const show = String(req.query.show ?? "issued").toLowerCase(); // issued | all
-  const where = { user_id: userId };
-  if (show !== "all") where.status = "ISSUED";
-
-  // ✅ 정렬 적용
-  const sortResult = parseSort(
-    req.query.sort,
-    USER_COUPON_SORT_MAP,
-    "issued_at,DESC"
-  );
-
-  try {
-    const rows = await UserCoupons.findAll({
-      where,
-      include: [
-        {
-          model: Coupons,
-          attributes: ["id", "name", "discount_rate", "start_at", "end_at", "status"],
-        },
-      ],
-      order: sortResult.order, // ← 핵심
-    });
-
-    return sendOk(res, {
-      user_id: userId,
-      sort: sortResult.sort,
-      items: rows.map((uc) => ({
-        id: uc.id,
-        coupon_id: uc.coupon_id,
-        status: uc.status,
-        issued_at: uc.issued_at,
-        used_at: uc.used_at,
-        coupon: uc.coupon
-          ? {
-              id: uc.coupon.id,
-              name: uc.coupon.name,
-              discount_rate: uc.coupon.discount_rate,
-              start_at: uc.coupon.start_at,
-              end_at: uc.coupon.end_at,
-              status: uc.coupon.status,
-            }
-          : null,
-      })),
-    });
-  } catch (err) {
-    console.error("GET /coupons/:userId error:", err);
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to list user coupons");
-  }
-});
-
-/**
- * 쿠폰 리스트 (ADMIN) - 모든 쿠폰 리스트 + sort
- * GET /coupons?page=1&size=20&status=ACTIVE&q=겨울&sort=created_at,DESC
- */
+// 쿠폰 리스트 (ADMIN)
 router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
 
-  // 허용 정렬 컬럼 제한 (중요)
-  const {order, sort} = parseSort(req.query.sort, COUPON_SORT_MAP, "created_at,DESC", );
+  const { order, sort } = parseSort(req.query.sort, COUPON_SORT_MAP, "created_at,DESC");
 
   const where = {};
   if (req.query.status) where.status = req.query.status;
@@ -302,15 +248,197 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * PATCH /coupons (ADMIN)
- * 기간이 맞고 status가 SCHEDULED인 쿠폰들을 ACTIVE로 일괄 전환
+ * @openapi
+ * /coupons/{couponId}/assign:
+ *   post:
+ *     tags: [Coupons]
+ *     summary: 유저에게 쿠폰 지급 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: couponId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [user_ids]
+ *             properties:
+ *               user_ids:
+ *                 type: array
+ *                 items: { type: integer }
+ *                 example: [1,2,3]
+ *     responses:
+ *       200: { description: 지급 결과 반환 }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: coupon not found }
+ *       500: { description: failed to assign coupon }
  */
+// ✅ 유저 쿠폰 할당 (ADMIN) - 경로 수정!
+router.post("/:couponId/assign", requireAuth, requireRole("ADMIN"), async (req, res) => {
+  const couponId = parseId(req.params.couponId);
+  if (!couponId) return sendError(res, 400, "BAD_REQUEST", "invalid couponId");
+
+  const errors = validateAssignBody(req.body);
+  if (Object.keys(errors).length) {
+    return sendError(res, 400, "BAD_REQUEST", "invalid body", { errors });
+  }
+
+  const userIds = [...new Set(req.body.user_ids.map((x) => parseInt(x, 10)))].filter((n) => n > 0);
+
+  try {
+    const coupon = await Coupons.findByPk(couponId);
+    if (!coupon) return sendError(res, 404, "NOT_FOUND", "coupon not found");
+
+    const users = await Users.findAll({
+      where: { id: { [Op.in]: userIds } },
+      attributes: ["id"],
+    });
+    const validIds = new Set(users.map((u) => u.id));
+    const invalid = userIds.filter((id) => !validIds.has(id));
+    const targets = userIds.filter((id) => validIds.has(id));
+
+    const existed = await UserCoupons.findAll({
+      where: { coupon_id: couponId, user_id: { [Op.in]: targets } },
+      attributes: ["user_id"],
+    });
+    const existedSet = new Set(existed.map((x) => x.user_id));
+
+    const toInsert = targets.filter((id) => !existedSet.has(id));
+
+    const now = new Date();
+    if (toInsert.length > 0) {
+      await UserCoupons.bulkCreate(
+        toInsert.map((uid) => ({
+          user_id: uid,
+          coupon_id: couponId,
+          status: "ISSUED",
+          issued_at: now,
+        })),
+        { validate: true }
+      );
+    }
+
+    return sendOk(res, {
+      coupon_id: couponId,
+      assigned: toInsert,
+      skipped: targets.filter((id) => existedSet.has(id)),
+      invalid,
+    });
+  } catch (err) {
+    console.error("POST /coupons/:couponId/assign error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to assign coupon");
+  }
+});
+
+/**
+ * @openapi
+ * /coupons/{userId}:
+ *   get:
+ *     tags: [Coupons]
+ *     summary: 유저의 쿠폰 목록 조회 (본인 또는 ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: show
+ *         schema: { type: string, enum: [issued, all], default: issued }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string }
+ *         example: issued_at,DESC
+ *     responses:
+ *       200: { description: 조회 성공 }
+ *       403: { description: cannot view other user's coupons }
+ *       404: { description: invalid userId }
+ *       500: { description: failed to list user coupons }
+ */
+// 유저 쿠폰 확인 (본인 또는 ADMIN)
+router.get("/:userId", requireAuth, async (req, res) => {
+  const userId = parseId(req.params.userId);
+  if (!userId) return sendError(res, 400, "BAD_REQUEST", "invalid userId");
+
+  const auth = req.auth;
+  const isAdmin = auth?.role === "ADMIN";
+  if (!isAdmin && auth?.userId !== userId) {
+    return sendError(res, 403, "FORBIDDEN", "cannot view other user's coupons");
+  }
+
+  const show = String(req.query.show ?? "issued").toLowerCase(); // issued | all
+  const where = { user_id: userId };
+  if (show !== "all") where.status = "ISSUED";
+
+  const sortResult = parseSort(req.query.sort, USER_COUPON_SORT_MAP, "issued_at,DESC");
+
+  try {
+    const rows = await UserCoupons.findAll({
+      where,
+      include: [
+        {
+          model: Coupons,
+          attributes: ["id", "name", "discount_rate", "start_at", "end_at", "status"],
+        },
+      ],
+      order: sortResult.order,
+    });
+
+    return sendOk(res, {
+      user_id: userId,
+      sort: sortResult.sort,
+      items: rows.map((uc) => ({
+        id: uc.id,
+        coupon_id: uc.coupon_id,
+        status: uc.status,
+        issued_at: uc.issued_at,
+        used_at: uc.used_at,
+        coupon: uc.coupon
+          ? {
+              id: uc.coupon.id,
+              name: uc.coupon.name,
+              discount_rate: uc.coupon.discount_rate,
+              start_at: uc.coupon.start_at,
+              end_at: uc.coupon.end_at,
+              status: uc.coupon.status,
+            }
+          : null,
+      })),
+    });
+  } catch (err) {
+    console.error("GET /coupons/:userId error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to list user coupons");
+  }
+});
+
+/**
+ * @openapi
+ * /coupons/refresh:
+ *   patch:
+ *     tags: [Coupons]
+ *     summary: 쿠폰 상태 일괄 갱신 (ADMIN) - SCHEDULED->ACTIVE, ACTIVE->ENDED
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: 갱신 결과 }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: failed to refresh coupons status }
+ */
+// 쿠폰 상태 갱신 (ADMIN)
 router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const now = new Date();
 
   try {
     const result = await (sequelize ?? Coupons.sequelize).transaction(async (t) => {
-      // 1) SCHEDULED -> ACTIVE 대상
       const toActivate = await Coupons.findAll({
         where: {
           status: "SCHEDULED",
@@ -323,7 +451,6 @@ router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => 
       });
       const activateIds = toActivate.map((c) => c.id);
 
-      // 2) ACTIVE -> ENDED 대상
       const toEnd = await Coupons.findAll({
         where: {
           status: "ACTIVE",
@@ -335,7 +462,6 @@ router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => 
       });
       const endIds = toEnd.map((c) => c.id);
 
-      // 3) 업데이트
       let activated = 0;
       let ended = 0;
 
@@ -372,12 +498,25 @@ router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => 
 });
 
 /**
- * 6) 쿠폰 삭제(ADMIN)
- * DELETE /coupons/:couponId
- *
- * - 주문에 사용된 쿠폰이면 FK(RESTRICT) 때문에 하드삭제가 막힐 수 있음
- *   => 이 경우 409로 응답
+ * @openapi
+ * /coupons/{couponId}:
+ *   delete:
+ *     tags: [Coupons]
+ *     summary: 쿠폰 삭제 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: couponId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: 삭제 성공 }
+ *       404: { description: coupon not found }
+ *       409: { description: coupon already used in orders; cannot delete }
+ *       500: { description: failed to delete coupon }
  */
+// 쿠폰 삭제 (ADMIN)
 router.delete("/:couponId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const couponId = parseId(req.params.couponId);
   if (!couponId) return sendError(res, 400, "BAD_REQUEST", "invalid couponId");
@@ -386,13 +525,11 @@ router.delete("/:couponId", requireAuth, requireRole("ADMIN"), async (req, res) 
     const coupon = await Coupons.findByPk(couponId);
     if (!coupon) return sendError(res, 404, "NOT_FOUND", "coupon not found");
 
-    // 사용 이력 체크 (order_coupons가 존재하면 삭제 막는 게 안전)
     const used = await OrderCoupons.count({ where: { coupon_id: couponId } });
     if (used > 0) {
       return sendError(res, 409, "CONFLICT", "coupon already used in orders; cannot delete");
     }
 
-    // user_coupons 먼저 지우고 쿠폰 지우기 (FK 때문에)
     await sequelize.transaction(async (t) => {
       await UserCoupons.destroy({ where: { coupon_id: couponId }, transaction: t });
       await Coupons.destroy({ where: { id: couponId }, transaction: t });

@@ -8,23 +8,48 @@ import { parseSort } from "../utils/sort.js";
 import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
-
 const { Libraries, Books } = models;
-
-// 공통 성공 응답 헬퍼
 
 const LIBRARY_SORT_FIELDS = {
   id: "id",
   created_at: "created_at",
   updated_at: "updated_at",
-
-  // 조인된 Books로 정렬하고 싶으면 별칭을 명확히 썊
   book_title: [{ model: Books, as: "book" }, "title"],
 };
 
+/**
+ * @openapi
+ * /libraries:
+ *   post:
+ *     tags: [Libraries]
+ *     summary: 라이브러리에 도서 추가
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [bookId]
+ *             properties:
+ *               bookId:
+ *                 type: integer
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: 라이브러리 추가 성공
+ *       200:
+ *         description: 이미 존재 (중복)
+ *       400:
+ *         description: bookId must be positive integer
+ *       404:
+ *         description: book not found
+ *       500:
+ *         description: failed to add library item
+ */
 // ---------------------------------------------------------------------
-// 5.1 라이브러리에 도서 추가 (POST /libraries)
-// body: { bookId }
+// POST /libraries
 // ---------------------------------------------------------------------
 router.post("", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -35,14 +60,12 @@ router.post("", requireAuth, async (req, res) => {
   }
 
   try {
-    // 책 존재 + soft delete 체크
     const book = await Books.findOne({
       where: { id: bookId, deleted_at: { [Op.is]: null } },
       attributes: ["id", "title"],
     });
     if (!book) return sendError(res, 404, "NOT_FOUND", "book not found");
 
-    // carts랑 똑같이: 이미 있으면 재사용
     const existing = await Libraries.findOne({
       where: { user_id: userId, book_id: bookId },
       include: [{ model: Books, as: "book", attributes: ["id", "title"] }],
@@ -83,37 +106,44 @@ router.post("", requireAuth, async (req, res) => {
   }
 });
 
-
+/**
+ * @openapi
+ * /libraries:
+ *   get:
+ *     tags: [Libraries]
+ *     summary: 내 라이브러리 목록 조회
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           example: created_at,DESC
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       500:
+ *         description: failed to get library list
+ */
 // ---------------------------------------------------------------------
-// 5.2 라이브러리 조회 (GET /libraries)
-// 응답 payload:
-// {
-//   content: [
-//     {
-//       libraryId,
-//       bookId,
-//       bookTitle,
-//       addedAt
-//     }
-//   ],
-//   pagination: { currentPage, totalPages, totalElements, size }
-// }
+// GET /libraries
 // ---------------------------------------------------------------------
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const { page, size, offset } = parsePagination(req.query);
-
   const { order, sort } = parseSort(req.query.sort, LIBRARY_SORT_FIELDS, "created_at,DESC");
+
   try {
     const { rows, count } = await Libraries.findAndCountAll({
       where: { user_id: userId },
-      include: [
-        {
-          model: Books,
-          as: "book",
-          attributes: ["title"],
-        },
-      ],
+      include: [{ model: Books, as: "book", attributes: ["title"] }],
       order,
       limit: size,
       offset,
@@ -136,24 +166,35 @@ router.get("/", requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("GET /libraries error:", err);
-    return sendError(
-      res,
-      500,
-      "INTERNAL_SERVER_ERROR",
-      "failed to get library list"
-    );
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to get library list");
   }
 });
 
+/**
+ * @openapi
+ * /libraries/{libraryId}:
+ *   get:
+ *     tags: [Libraries]
+ *     summary: 라이브러리 단건 조회
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: libraryId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       400:
+ *         description: libraryId must be integer
+ *       404:
+ *         description: library item not found
+ *       500:
+ *         description: failed to get library item
+ */
 // ---------------------------------------------------------------------
-// 5.2-1 라이브러리 단건 조회 (GET /libraries/:libraryId)
-// 응답 payload:
-// {
-//   libraryId,
-//   bookId,
-//   bookTitle,
-//   addedAt
-// }
+// GET /libraries/:libraryId
 // ---------------------------------------------------------------------
 router.get("/:libraryId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -172,14 +213,12 @@ router.get("/:libraryId", requireAuth, async (req, res) => {
           as: "book",
           attributes: ["id", "title"],
           where: { deleted_at: { [Op.is]: null } },
-          required: false, // 책이 soft delete 됐어도 라이브러리 row는 보여줄지 여부
+          required: false,
         },
       ],
     });
 
-    if (!row) {
-      return sendError(res, 404, "NOT_FOUND", "library item not found");
-    }
+    if (!row) return sendError(res, 404, "NOT_FOUND", "library item not found");
 
     return sendOk(res, {
       libraryId: row.id,
@@ -193,9 +232,32 @@ router.get("/:libraryId", requireAuth, async (req, res) => {
   }
 });
 
-// ----------------------------
-// 라이브러리 도서 삭제(DELETE /libraries/:itemId)
-// ----------------------------
+/**
+ * @openapi
+ * /libraries/{itemId}:
+ *   delete:
+ *     tags: [Libraries]
+ *     summary: 라이브러리 도서 삭제
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 삭제 성공
+ *       400:
+ *         description: itemId must be positive integer
+ *       404:
+ *         description: library item not found
+ *       500:
+ *         description: failed to delete library item
+ */
+// ---------------------------------------------------------------------
+// DELETE /libraries/:itemId
+// ---------------------------------------------------------------------
 router.delete("/:itemId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const itemId = Number(req.params.itemId);
@@ -217,4 +279,5 @@ router.delete("/:itemId", requireAuth, async (req, res) => {
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete library item");
   }
 });
+
 export default router;

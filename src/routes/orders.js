@@ -10,7 +10,6 @@ import { parsePagination } from "../utils/pagination.js";
 const router = Router();
 const { Orders, OrderItems, Books, sequelize, CartItems, UserCoupons, Coupons, OrderCoupons } = models;
 
-
 function parseId(v) {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;
@@ -21,10 +20,6 @@ const orderSortMap = {
   created_at: "created_at",
   total_amount: "total_amount",
   status: "status",
-  // 필요하면 추가:
-  // subtotal_amount: "subtotal_amount",
-  // coupon_discount: "coupon_discount",
-  // updated_at: "updated_at",
 };
 
 // ✅ 주문 상세의 items 정렬 허용 필드
@@ -40,9 +35,46 @@ const itemSortMap = {
 // NOTE: 주문은 cart_items 스냅샷 기반, 결제 개념 없음
 
 /**
- * 7.1 주문 생성 (POST /orders)
- * body: { items: [{bookId, quantity}], couponId? }
- * 응답: { orderId, subtotalAmount, couponDiscount, totalAmount }
+ * @openapi
+ * /orders:
+ *   post:
+ *     tags: [Orders]
+ *     summary: 주문 생성 (내 카트 기준, 쿠폰 선택 적용 가능)
+ *     description: |
+ *       - 결제 개념 없음. 생성 시 status=CREATED.
+ *       - 카트 활성 아이템(is_active=1)을 스냅샷으로 order_items 생성 후, 카트는 비활성화 처리.
+ *       - coupon_id를 주면 (UserCoupons ISSUED + Coupons ACTIVE + 기간 유효)인 경우만 적용.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               coupon_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       200:
+ *         description: 주문 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 orderId: { type: integer, example: 10 }
+ *                 subtotalAmount: { type: integer, example: 30000 }
+ *                 couponDiscount: { type: integer, example: 3000 }
+ *                 totalAmount: { type: integer, example: 27000 }
+ *                 itemsCount: { type: integer, example: 2 }
+ *                 couponId: { type: integer, nullable: true, example: 1 }
+ *       400:
+ *         description: cart is empty / some books not found / invalid or unusable coupon / invalid coupon_id
+ *       500:
+ *         description: failed to create order
  */
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -68,7 +100,7 @@ router.post("/", requireAuth, async (req, res) => {
       const total = await CartItems.count({ transaction: t });
       const mine = await CartItems.count({ where: { cart_user_id: userId }, transaction: t });
       const mineActive = await CartItems.count({
-        where: { cart_user_id: userId, is_active: 1 }, // ✅ boolean 말고 1로 통일
+        where: { cart_user_id: userId, is_active: 1 },
         transaction: t,
       });
       console.log("cart_items total/mine/mineActive:", total, mine, mineActive);
@@ -147,7 +179,7 @@ router.post("/", requireAuth, async (req, res) => {
             },
           ],
           transaction: t,
-          lock: t.LOCK.UPDATE, // ✅ 동시 사용 방지
+          lock: t.LOCK.UPDATE,
         });
 
         if (!userCoupon) {
@@ -168,12 +200,12 @@ router.post("/", requireAuth, async (req, res) => {
       const totalAmount = subtotalAmount - couponDiscount;
       if (totalAmount < 0) throw new Error("totalAmount cannot be negative");
 
-      // 4) orders 생성 (결제 없음 => CREATED가 곧 확정)
+      // 4) orders 생성
       const createdOrder = await Orders.create(
         {
           user_id: userId,
           subtotal_amount: subtotalAmount,
-          coupon_discount: couponDiscount, // ✅ 적용
+          coupon_discount: couponDiscount,
           total_amount: totalAmount,
           status: "CREATED",
           created_at: new Date(),
@@ -188,7 +220,7 @@ router.post("/", requireAuth, async (req, res) => {
         { transaction: t }
       );
 
-      // ✅ 5.5) 쿠폰 사용 기록 (order_coupons + user_coupons USED)
+      // ✅ 5.5) 쿠폰 사용 기록
       if (appliedCouponId) {
         await OrderCoupons.create(
           {
@@ -200,7 +232,6 @@ router.post("/", requireAuth, async (req, res) => {
           { transaction: t }
         );
 
-        // 마지막 방어: ISSUED인 것만 USED로 바꿈
         const [updated] = await UserCoupons.update(
           { status: "USED", used_at: new Date() },
           {
@@ -209,7 +240,6 @@ router.post("/", requireAuth, async (req, res) => {
           }
         );
         if (updated !== 1) {
-          // 동시성/이상 케이스: 여기까지 왔는데 못 바꾸면 롤백시키는 게 맞음
           throw new Error("failed to mark user coupon as USED");
         }
       }
@@ -226,7 +256,7 @@ router.post("/", requireAuth, async (req, res) => {
         couponDiscount,
         totalAmount,
         itemsCount: orderItemRows.length,
-        couponId: appliedCouponId, // ✅ 응답에 어떤 쿠폰 적용됐는지
+        couponId: appliedCouponId,
       };
     });
 
@@ -247,23 +277,43 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 /**
- * 내 주문 상세 조회 (GET /orders/detail/:id)
- * - sort는 items 정렬에 사용: ?sort=id,ASC  (기본 id,ASC)
+ * @openapi
+ * /orders/detail/{id}:
+ *   get:
+ *     tags: [Orders]
+ *     summary: 내 주문 상세 조회 (items 포함)
+ *     description: "items 정렬은 query sort로 적용 (예: sort=id,ASC)."
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: sort
+ *         description: "items 정렬 (허용: id, book_id, quantity, unit_price, total_amount, created_at)"
+ *         schema: { type: string, example: "id,ASC" }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: invalid order id
+ *       404:
+ *         description: order not found
  */
 router.get("/detail/:id", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const orderId = parseId(req.params.id);
   if (!orderId) return sendError(res, 400, "BAD_REQUEST", "invalid order id");
 
-  // ✅ items 정렬
   const { order: itemOrder, sort } = parseSort(req.query.sort, itemSortMap, "id,ASC");
 
   try {
     const foundOrder = await Orders.findOne({
       where: { id: orderId, user_id: userId },
       include: [{ model: OrderItems, as: "items" }],
-      // items 정렬 적용
-      order: [[{ model: OrderItems, as: "items" }, ...itemOrder[0]]], // 첫 조건만 items에 반영
+      order: [[{ model: OrderItems, as: "items" }, ...itemOrder[0]]],
     });
 
     if (!foundOrder) return sendError(res, 404, "NOT_FOUND", "order not found");
@@ -275,7 +325,7 @@ router.get("/detail/:id", requireAuth, async (req, res) => {
       couponDiscount: foundOrder.coupon_discount,
       totalAmount: foundOrder.total_amount,
       createdAt: foundOrder.created_at,
-      sort, // ✅ items 정렬 기준
+      sort,
       items: (foundOrder.items ?? []).map((it) => ({
         id: it.id,
         bookId: it.book_id,
@@ -292,9 +342,33 @@ router.get("/detail/:id", requireAuth, async (req, res) => {
 });
 
 /**
- * GET /orders
- * - 내 주문 목록 조회 (페이지네이션 + sort)
- * - sort: ?sort=created_at,DESC (기본)
+ * @openapi
+ * /orders:
+ *   get:
+ *     tags: [Orders]
+ *     summary: 내 주문 목록 조회 (페이지네이션 + 정렬)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: sort
+ *         description: "허용: created_at,total_amount,status (예: created_at,DESC)"
+ *         schema: { type: string, example: "created_at,DESC" }
+ *       - in: query
+ *         name: status
+ *         description: "CREATED | CANCELLED"
+ *         schema: { type: string, example: "CREATED" }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       500:
+ *         description: failed to list orders
  */
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -311,7 +385,7 @@ router.get("/", requireAuth, async (req, res) => {
       where,
       limit: size,
       offset,
-      order, // ✅ 적용
+      order,
     });
 
     return sendOk(res, {
@@ -323,7 +397,7 @@ router.get("/", requireAuth, async (req, res) => {
         totalAmount: o.total_amount,
         createdAt: o.created_at,
       })),
-      meta: { page, size, total: count, sort }, // ✅
+      meta: { page, size, total: count, sort },
     });
   } catch (err) {
     console.error("GET /orders error:", err);
@@ -332,8 +406,39 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 /**
- * GET /orders/:userId (ADMIN)
- * - 특정 유저 주문 목록 조회 (페이지네이션 + sort)
+ * @openapi
+ * /orders/{userId}:
+ *   get:
+ *     tags: [Orders]
+ *     summary: 특정 유저 주문 목록 조회 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: sort
+ *         description: "허용: created_at,total_amount,status (예: created_at,DESC)"
+ *         schema: { type: string, example: "created_at,DESC" }
+ *       - in: query
+ *         name: status
+ *         description: "CREATED | CANCELLED"
+ *         schema: { type: string, example: "CREATED" }
+ *     responses:
+ *       200:
+ *         description: 성공
+ *       400:
+ *         description: invalid userId
+ *       500:
+ *         description: failed to list orders
  */
 router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const targetUserId = parseId(req.params.userId);
@@ -352,7 +457,7 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
       where,
       limit: size,
       offset,
-      order, // ✅ 적용
+      order,
     });
 
     return sendOk(res, {
@@ -365,7 +470,7 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
         totalAmount: o.total_amount,
         createdAt: o.created_at,
       })),
-      meta: { page, size, total: count, sort }, // ✅
+      meta: { page, size, total: count, sort },
     });
   } catch (err) {
     console.error("GET /orders/:userId error:", err);
@@ -374,8 +479,27 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
 });
 
 /**
- * 7.3 주문 취소 (DELETE /orders/:orderId)
- * - CREATED 상태만 취소 가능
+ * @openapi
+ * /orders/{orderId}:
+ *   delete:
+ *     tags: [Orders]
+ *     summary: 주문 취소 (내 주문, CREATED만 가능)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 취소 성공
+ *       400:
+ *         description: only CREATED orders can be cancelled / invalid orderId
+ *       404:
+ *         description: order not found
+ *       500:
+ *         description: failed to cancel order
  */
 router.delete("/:orderId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;

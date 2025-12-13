@@ -10,7 +10,6 @@ import { parsePagination } from "../utils/pagination.js";
 const router = Router();
 const { Sellers } = models;
 
-
 const SELLER_SORT_FIELDS = {
   id: "id",
   business_name: "business_name",
@@ -37,9 +36,72 @@ function toSellerRow(s) {
   };
 }
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Sellers
+ *     description: 판매자 관리 API
+ */
+
+/**
+ * @openapi
+ * /sellers:
+ *   post:
+ *     tags: [Sellers]
+ *     summary: 판매자 등록 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [businessName, businessNumber, email]
+ *             properties:
+ *               businessName:
+ *                 type: string
+ *                 example: 테스트출판사
+ *               businessNumber:
+ *                 type: string
+ *                 example: 123-45-67890
+ *               email:
+ *                 type: string
+ *                 example: seller@example.com
+ *               phoneNumber:
+ *                 type: string
+ *                 nullable: true
+ *               address:
+ *                 type: string
+ *                 nullable: true
+ *               payoutBank:
+ *                 type: string
+ *                 nullable: true
+ *               payoutAccount:
+ *                 type: string
+ *                 nullable: true
+ *               payoutHolder:
+ *                 type: string
+ *                 nullable: true
+ *               commissionRate:
+ *                 type: number
+ *                 example: 10
+ *     responses:
+ *       201:
+ *         description: 판매자 생성 성공
+ *       400:
+ *         description: VALIDATION_FAILED
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       409:
+ *         description: DUPLICATE_RESOURCE
+ *       500:
+ *         description: failed to create seller
+ */
 // ----------------------------
-// POST /sellers (ADMIN) - 판매자 등록
-// body: { businessName, businessNumber, email, phoneNumber?, address?, payoutBank?, payoutAccount?, payoutHolder?, commissionRate? }
+// POST /sellers (ADMIN)
 // ----------------------------
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const {
@@ -70,11 +132,13 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   }
 
   try {
-    // 중복 체크(대충): 사업자번호, 이메일
     const dup = await Sellers.findOne({
       where: {
         deleted_at: null,
-        [Op.or]: [{ business_number: businessNumber.trim() }, { email: email.trim() }],
+        [Op.or]: [
+          { business_number: businessNumber.trim() },
+          { email: email.trim() },
+        ],
       },
     });
     if (dup) {
@@ -104,17 +168,41 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /sellers:
+ *   get:
+ *     tags: [Sellers]
+ *     summary: 판매자 목록 조회 (공개)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *         description: businessName / email / businessNumber 검색
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string }
+ *         example: id,ASC
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       500:
+ *         description: failed to get sellers
+ */
 // ----------------------------
-// GET /sellers - 판매자 목록 (공개)
-// query: page, size, q, sort
-// 응답: content,page,size,totalElements,totalPages,sort
+// GET /sellers
 // ----------------------------
 router.get("/", async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
   const q = (req.query.q || "").toString().trim();
 
   const where = { deleted_at: null };
-
   if (q) {
     where[Op.or] = [
       { business_name: { [Op.like]: `%${q}%` } },
@@ -156,8 +244,29 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /sellers/{sellerId}:
+ *   get:
+ *     tags: [Sellers]
+ *     summary: 판매자 상세 조회 (공개)
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       400:
+ *         description: invalid sellerId
+ *       404:
+ *         description: seller not found
+ *       500:
+ *         description: failed to get seller
+ */
 // ----------------------------
-// GET /sellers/:sellerId - 판매자 상세 (공개)
+// GET /sellers/:sellerId
 // ----------------------------
 router.get("/:sellerId", async (req, res) => {
   const sellerId = parseInt(req.params.sellerId, 10);
@@ -174,9 +283,49 @@ router.get("/:sellerId", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /sellers/{sellerId}:
+ *   put:
+ *     tags: [Sellers]
+ *     summary: 판매자 수정 (ADMIN)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               businessName: { type: string }
+ *               phoneNumber: { type: string, nullable: true }
+ *               address: { type: string, nullable: true }
+ *               payoutBank: { type: string, nullable: true }
+ *               payoutAccount: { type: string, nullable: true }
+ *               payoutHolder: { type: string, nullable: true }
+ *               commissionRate: { type: number }
+ *     responses:
+ *       200:
+ *         description: 수정 성공
+ *       400:
+ *         description: VALIDATION_FAILED
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       404:
+ *         description: seller not found
+ *       500:
+ *         description: failed to update seller
+ */
 // ----------------------------
-// PUT /sellers/:sellerId (ADMIN) - 판매자 수정
-// body: { businessName?, businessNumber?, email?, phoneNumber?, address?, payoutBank?, payoutAccount?, payoutHolder?, commissionRate? }
+// PUT /sellers/:sellerId (ADMIN)
 // ----------------------------
 router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const sellerId = parseInt(req.params.sellerId, 10);
@@ -186,8 +335,8 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
 
   const {
     businessName,
-    businessNumber, 
-    email,          
+    businessNumber,
+    email,
     phoneNumber,
     address,
     payoutBank,
@@ -197,45 +346,11 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
   } = req.body ?? {};
 
   const errors = {};
-
   if (businessNumber !== undefined) errors.businessNumber = "businessNumber cannot be updated";
   if (email !== undefined) errors.email = "email cannot be updated";
 
-  // 수정 가능한 필드 검증
-  if (businessName !== undefined) {
-    if (typeof businessName !== "string" || !businessName.trim()) {
-      errors.businessName = "businessName must be non-empty string";
-    }
-  }
-
-  if (phoneNumber !== undefined) {
-    if (phoneNumber !== null && typeof phoneNumber !== "string") {
-      errors.phoneNumber = "phoneNumber must be a string or null";
-    }
-  }
-
-  if (address !== undefined) {
-    if (address !== null && typeof address !== "string") {
-      errors.address = "address must be a string or null";
-    }
-  }
-
-  if (payoutBank !== undefined) {
-    if (payoutBank !== null && typeof payoutBank !== "string") {
-      errors.payoutBank = "payoutBank must be a string or null";
-    }
-  }
-
-  if (payoutAccount !== undefined) {
-    if (payoutAccount !== null && typeof payoutAccount !== "string") {
-      errors.payoutAccount = "payoutAccount must be a string or null";
-    }
-  }
-
-  if (payoutHolder !== undefined) {
-    if (payoutHolder !== null && typeof payoutHolder !== "string") {
-      errors.payoutHolder = "payoutHolder must be a string or null";
-    }
+  if (businessName !== undefined && (!businessName || typeof businessName !== "string")) {
+    errors.businessName = "businessName must be non-empty string";
   }
 
   if (commissionRate !== undefined) {
@@ -253,13 +368,12 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
     const s = await Sellers.findOne({ where: { id: sellerId, deleted_at: null } });
     if (!s) return sendError(res, 404, "NOT_FOUND", "seller not found");
 
-    // ✅ 반영
     if (businessName !== undefined) s.business_name = businessName.trim();
-    if (phoneNumber !== undefined) s.phone_number = phoneNumber; // null 허용
-    if (address !== undefined) s.address = address;               // null 허용
-    if (payoutBank !== undefined) s.payout_bank = payoutBank;     // null 허용
-    if (payoutAccount !== undefined) s.payout_account = payoutAccount; // null 허용
-    if (payoutHolder !== undefined) s.payout_holder = payoutHolder;    // null 허용
+    if (phoneNumber !== undefined) s.phone_number = phoneNumber;
+    if (address !== undefined) s.address = address;
+    if (payoutBank !== undefined) s.payout_bank = payoutBank;
+    if (payoutAccount !== undefined) s.payout_account = payoutAccount;
+    if (payoutHolder !== undefined) s.payout_holder = payoutHolder;
     if (commissionRate !== undefined) s.commission_rate = Number(commissionRate);
 
     s.updated_at = new Date();
@@ -272,8 +386,35 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
   }
 });
 
+/**
+ * @openapi
+ * /sellers/{sellerId}:
+ *   delete:
+ *     tags: [Sellers]
+ *     summary: 판매자 삭제 (ADMIN, soft delete)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 삭제 성공
+ *       400:
+ *         description: invalid sellerId
+ *       401:
+ *         description: UNAUTHORIZED
+ *       403:
+ *         description: FORBIDDEN
+ *       404:
+ *         description: seller not found
+ *       500:
+ *         description: failed to delete seller
+ */
 // ----------------------------
-// DELETE /sellers/:sellerId (ADMIN) - soft delete
+// DELETE /sellers/:sellerId (ADMIN)
 // ----------------------------
 router.delete("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const sellerId = parseInt(req.params.sellerId, 10);
