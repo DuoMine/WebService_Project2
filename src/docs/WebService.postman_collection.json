@@ -1,0 +1,2029 @@
+{
+	"info": {
+		"_postman_id": "07130839-5e8d-4f03-92dc-c91e732de188",
+		"name": "WebService",
+		"description": "Auth + Users + AdminUsers + Authors + Books + Categories + Comments + Reviews + Favorites + Likes + Coupons + Libraries + Orders + Payments",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "49596807",
+		"_collection_link": "https://kindkim02-4599655.postman.co/workspace/DuoMine's-Team's-Workspace~7e1a5fc5-f0f9-45fd-8d2b-a3dcca76b6ff/collection/49596807-07130839-5e8d-4f03-92dc-c91e732de188?action=share&source=collection_link&creator=49596807"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "헬스 체크 GET /health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Health OK\", () => {\r",
+									"  pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"const json = pm.response.json();\r",
+									"pm.expect(json).to.have.property(\"version\");\r",
+									"pm.expect(json).to.have.property(\"time\");"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "회원가입 POST /auth/register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"kindkim04@gmail.com\",\n  \"password\": \"12341234\",\n  \"name\": \"김선한\",\n  \"birth_year\": 2002,\n  \"gender\": \"MALE\",\n  \"region_code\": \"KR-11\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "로그인 POST /auth/login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"200 OK\", () => {\r",
+									"  pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"const json = pm.response.json();\r",
+									"\r",
+									"pm.test(\"login response has tokens\", () => {\r",
+									"  pm.expect(json).to.have.property(\"token_type\");\r",
+									"  pm.expect(json).to.have.property(\"access_token\");\r",
+									"  pm.expect(json).to.have.property(\"refresh_token\");\r",
+									"});\r",
+									"\r",
+									"pm.environment.set(\"accessToken\", json.access_token);\r",
+									"\r",
+									"pm.environment.set(\"tokenType\", json.token_type);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"kindkim04@gmail.com\",\n  \"password\": \"12341234\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "로그인 POST /auth/login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"200 OK\", () => {\r",
+									"  pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"const json = pm.response.json();\r",
+									"\r",
+									"pm.test(\"login response has tokens\", () => {\r",
+									"  pm.expect(json).to.have.property(\"token_type\");\r",
+									"  pm.expect(json).to.have.property(\"access_token\");\r",
+									"  pm.expect(json).to.have.property(\"refresh_token\");\r",
+									"});\r",
+									"\r",
+									"pm.environment.set(\"accessToken\", json.access_token);\r",
+									"\r",
+									"pm.environment.set(\"tokenType\", json.token_type);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"kindkim02@gmail.com\",\n  \"password\": \"12341234\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "토큰 재발급 POST /auth/refresh",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "로그아웃 POST /auth/logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "유저 생성 POST /users (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Forbidden for USER role\", () => {\r",
+									"  pm.response.to.have.status(403);\r",
+									"\r",
+									"  const json = pm.response.json();\r",
+									"  pm.expect(json.code).to.eql(\"FORBIDDEN\");\r",
+									"  pm.expect(json.details.required).to.include(\"ADMIN\");\r",
+									"  pm.expect(json.details.actual).to.eql(\"USER\");\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user2@example.com\",\n  \"password\": \"Password1234!\",\n  \"name\": \"사용자2\",\n  \"birth_year\": 1998,\n  \"gender\": \"FEMALE\",\n  \"region_code\": \"KR-26\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 목록 GET /users (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Pagination fields exist\", () => {\r",
+									"  const json = pm.response.json();\r",
+									"  pm.expect(json).to.have.property(\"content\");\r",
+									"  pm.expect(json).to.have.property(\"page\");\r",
+									"  pm.expect(json).to.have.property(\"size\");\r",
+									"  pm.expect(json).to.have.property(\"totalElements\");\r",
+									"  pm.expect(json).to.have.property(\"totalPages\");\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/?page=1&size=10&keyword=",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "keyword",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "단일 유저 GET /users/:userId (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "내 정보 GET /users/me",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 수정 PATCH /users/:userId (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"수정된 사용자\",\n  \"birth_year\": 1999,\n  \"gender\": \"MALE\",\n  \"region_code\": \"KR-27\",\n  \"password\": \"12341234\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/2",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"2"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 수정 PATCH /users/me",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"김선한\",\n  \"birth_year\": 2002,\n  \"gender\": \"MALE\",\n  \"region_code\": \"KR-1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 삭제 DELETE /users/:userId (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"3"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 삭제 DELETE /users/me",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authors",
+			"item": [
+				{
+					"name": "저자 생성 POST /authors (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"penName\": \"김선한\",\n  \"birthYear\": 2002,\n  \"description\": \"저자 소개 텍스트\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/authors",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"authors"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "저자 목록 GET /authors",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/authors?page=1&size=10&q=김%&sort=createdAt,ASC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"authors"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "q",
+									"value": "김%"
+								},
+								{
+									"key": "sort",
+									"value": "createdAt,ASC"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "단일 저자 정보 GET /authors/:authorId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/authors/3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"authors",
+								"3"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "저자 수정 PUT /authors/:authorId (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"수정된 저자 이름\",\n  \"description\": \"수정된 소개\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/authors/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"authors",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "저자 삭제 DELETE /authors/authorId (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/authors/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"authors",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "카테고리 생성 POST /categories (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"소설\",\n  \"parent_id\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "카테고리 목록 GET /categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/categories",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "단일 카테고리 GET /categories/:categoryId",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"소설\",\n  \"parent_id\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categories",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "카테고리 수정 PUT /categories/:categoryId (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"수필\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categories",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "카테고리 삭제 DELETE /categories/:categoryId (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/categories/2",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categories",
+								"2"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Books",
+			"item": [
+				{
+					"name": "도서 생성 POST /books (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"예시 도서 제목\",\n  \"authorIds\": [1],\n  \"categoryIds\": [1],\n  \"sellerId\": 1,\n  \"price\": 15000,\n  \"isbn\": \"9781234567894\",\n  \"stock\": 10,\n  \"publisher\": \"publisher\",\n  \"summary\": \"summary\",\n  \"publicationDate\": \"2021-10-12\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/books",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "도서 목록 GET /books",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/books?page=1&size=10&keyword=&category_id=",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "keyword",
+									"value": ""
+								},
+								{
+									"key": "category_id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "단일 도서 GET /books/:bookId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/books/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "도서 수정 PUT /books/:bookId (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"수정된 도서 제목\",\n  \"price\": 17000,\n  \"stock\": 5\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/books/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "도서 카테고리 수정 PUT /books/:bookId/categories (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoryIds\": [1]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/books/1/categories",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books",
+								"1",
+								"categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "도서 삭제 DELETE /books/:bookId (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/books/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"books",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Carts",
+			"item": [
+				{
+					"name": "카트 도서 추가 POST /carts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"bookId\": 3\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/carts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "내 카트 GET /carts/me?",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/carts/me?sort=quantity,ASC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts",
+								"me"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "quantity,ASC"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 카트 GET /carts/:userId (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/carts/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "도서 수량 수정 PUT /carts/:cartItemId",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\":1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/carts/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "카트 도서 삭제 DELETE /carts/:cartItemId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/carts/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "카트 모든 도서 삭제 DELETE /carts",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/carts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"carts"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Sellers",
+			"item": [
+				{
+					"name": "판매자 생성 POST /sellers (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"businessName\": \"테스트 판매자\",\n  \"businessNumber\": \"123-45-67891\",\n  \"email\": \"seller2@test.com\",\n  \"phoneNumber\": \"010-1234-5678\",\n  \"address\": \"서울시 어딘가\",\n  \"payoutBank\": \"국민은행\",\n  \"payoutAccount\": \"123456-02-123456\",\n  \"payoutHolder\": \"홍길동\",\n  \"commissionRate\": 10,\n  \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sellers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sellers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "판매자 목록 GET /sellers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sellers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sellers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "판매자 정보 GET /sellers/:sellerId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sellers/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sellers",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "판매자 수정 PUT /sellers (Admin)",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    businessName=\"\",\r\n    phoneNumber,\r\n    address,\r\n    payoutBank,\r\n    payoutAccount,\r\n    payoutHolder,\r\n    commissionRate,\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sellers/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sellers",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "판매자 삭제 DELETE /sellers/:sellerId (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sellers/2",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sellers",
+								"2"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Libraries",
+			"item": [
+				{
+					"name": "서재 도서 추가 POST /libraries",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"bookId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/libraries",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"libraries"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "내 서재 GET /libraries",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/libraries",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"libraries"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 서재 GET /libraries/:userId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/libraries/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"libraries",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "지점 삭제 DELETE /libraries/:userId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/libraries/2",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"libraries",
+								"2"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Favorites",
+			"item": [
+				{
+					"name": "찜 추가 POST /favorites",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"bookId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/favorites",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"favorites"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "내 찜 목록 GET /favorites",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/favorites",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"favorites"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 찜 목록 GET /favorites/:userId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/favorites/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"favorites",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "찜 취소 DELETE /favorites/:favoriteId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/favorites/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"favorites",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "주문 생성 POST /orders",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "주문 생성 POST /orders (쿠폰사용 json)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"coupon_id\": 1 }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "주문 목록 GET /orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders?page=1&size=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "주문 목록 GET /orders/:userId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "주문 상세 GET /orders/detail/:orderId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/detail/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"detail",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "주문 취소 DELETE /orders/:orderId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"3"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Coupons",
+			"item": [
+				{
+					"name": "쿠폰 생성 POST /coupons (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"신규가입 10% 할인\",\n  \"discount_rate\": 10,\n  \"start_at\": \"2025-12-01T23:59:59.000Z\",\n  \"end_at\": \"2025-12-31T23:59:59.000Z\",\n  \"min_price\": 10000,\n  \"expires_at\": \"2025-12-31T23:59:59.000Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coupons",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "쿠폰 할당 POST /coupons/:couponId/assign (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_ids\": [1]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coupons/1/assign",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons",
+								"1",
+								"assign"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "쿠폰 목록 GET /coupons",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/coupons",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "유저 쿠폰 조회 GET /coupons/:userId",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/coupons/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "쿠폰 상태 변경 PATCH /coupons/refresh (Admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/coupons/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "쿠폰 삭제 DELETE /coupons/:couponId (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/coupons/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coupons",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reviews",
+			"item": [
+				{
+					"name": "리뷰 생성 POST /reviews",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"bookId\": 1,\n  \"rating\": 5,\n  \"comment\": \"내용\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "좋아요 추가 POST /reviews/:reviewId/likes",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/likes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"likes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "리뷰 목록 GET /reviews",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews?bookId=1&page=1&size=10&sort=created_at,DESC",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews"
+							],
+							"query": [
+								{
+									"key": "bookId",
+									"value": "1"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sort",
+									"value": "created_at,DESC"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "리뷰 조회 GET /reviews/:reviewId",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "리뷰 수정 PATCH /reviews/:reviewId (본인/Admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 4,\n  \"comment\": \"다시 보니 4점\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "리뷰 삭제 DELETE /reviews/:reviewId(본인/Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 4,\n  \"comment\": \"다시 보니 4점\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "좋아요 취소 DELETE /likes/:reviewId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/likes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"likes"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Comments",
+			"item": [
+				{
+					"name": "댓글 생성 POST /reviews/:reviewId/comments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"댓글 1 내용\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/comments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"comments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "좋아요 추가 POST /reviews/:reviewid/comments/commentId/likes",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"book_id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/comments/1/likes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"comments",
+								"1",
+								"likes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "댓글 목록 GET /reviews/:reviewid/comments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/comments?page=1&size=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"comments"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "댓글 수정 PATCH /reviews/:reviewId/comments/:commentId",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"수정된 댓글 내용입니다.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/comments/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"comments",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "댓글 삭제 DELETE /reviews/:reviewId/comments/:commentId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/1/comments/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"1",
+								"comments",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "좋아요 취소 DELETE /reviews/:reviewId/comments/commetId/likes",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/3/comments/1/likes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"3",
+								"comments",
+								"1",
+								"likes"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					"const token = pm.environment.get(\"accessToken\");\r",
+					"if (token) {\r",
+					"  pm.request.headers.add({\r",
+					"    key: \"Authorization\",\r",
+					"    value: `Bearer ${token}`\r",
+					"  });\r",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000"
+		}
+	]
+}
