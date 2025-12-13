@@ -222,24 +222,31 @@ function validateLoginBody(body) {
 
 /**
  * @openapi
- * /auth/refresh:
+ * /auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: 액세스 토큰 재발급
- *     security: []   # 🔓 access token 불필요
+ *     summary: 로그인
+ *     description: |
+ *       - 성공 시 access_token, refresh_token 쿠키 설정
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [email, password]
  *             properties:
- *               refresh_token: { type: string }
+ *               email: { type: string, example: "user1@example.com" }
+ *               password: { type: string, example: "password1234" }
  *     responses:
  *       200:
- *         description: OK
- *       400: { description: BAD_REQUEST }
- *       401: { description: TOKEN_EXPIRED }
+ *         description: 로그인 성공
+ *       400:
+ *         description: invalid body
+ *       401:
+ *         description: invalid credentials
+ *       500:
+ *         description: failed to login
  */
 router.post("/login", async (req, res) => {
   const { ok, value, errors } = validateLoginBody(req.body);
