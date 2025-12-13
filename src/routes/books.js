@@ -111,7 +111,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
       });
     }
 
-    // ✅ (1) ISBN 유니크 사전검사 -> 409
+    // (1) ISBN 유니크 사전검사 -> 409
     const existsIsbn = await Books.findOne({
       where: { isbn, deleted_at: null },
       attributes: ["id"],
