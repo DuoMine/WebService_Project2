@@ -26,15 +26,15 @@ PM2로 재시작 후에도 지속 구동
 
 JCloud는 포트 리다이렉션이 적용되어 있어, 외부 포트로 접속합니다.
 
-API Root(Base URL): http://http://113.198.66.68/:13117
+API Root(Base URL): http://http://113.198.66.68:13117
 
-Swagger UI: http://http://113.198.66.68/:13117/api-docs (또는 /docs / /swagger-ui 중 실제 경로)
+Swagger UI: http://http://113.198.66.68:13117/docs
 
-Health Check: http://http://113.198.66.68/:13117/health
+Health Check: http://http://113.198.66.68:13117/health
 
 헬스체크 예시:
 
-curl http://http://113.198.66.68/:13117/health
+curl http://http://113.198.66.68:13117/health
 
 2) 기술 스택
 
@@ -71,15 +71,7 @@ npm install
 
 A) SQL 파일로 스키마 생성
 
-mysql -h <DB_HOST> -P <DB_PORT> -u <DB_USER> -p <DB_NAME> < <schema.sql>
-
-
-B) Sequelize sync 기반(사용 중이면)
-
-npm run db:sync
-
-
-(네 프로젝트에 실제 존재하는 방식으로 하나만 남기고 정리해.)
+mysql -h <DB_HOST> -P <DB_PORT> -u <DB_USER> -p <DB_NAME> < bookstore.sql
 
 3-4. 서버 실행
 npm start
@@ -96,12 +88,13 @@ pm2 logs bookstore-api --lines 200
 pm2 startup
 pm2 save
 
-5) 환경변수(.env.example)
+5) 환경변수(.env.example) / (env.test.example)
 
-레포에는 아래 예시 형태로 .env.example를 포함합니다.
+레포에는 아래 예시 형태로 .env.example, .env.test.example을 포함합니다.
+test의 경우 db에 admin/user 계정의 아이디와 비번이 들어갑니다
 
 # Server
-PORT=8080
+PORT=3000
 NODE_ENV=production
 
 # DB
@@ -119,12 +112,6 @@ JWT_REFRESH_EXPIRES=14d
 
 # CORS (필요 시)
 CORS_ORIGIN=http://localhost:5173
-
-.env.test 안내
-
-테스트 DB를 분리했다면 .env.test에는 DB_NAME=bookstore_test 같은 식으로 분리
-
-분리 안 했으면 .env와 동일 구성 사용(권장 X지만 과제에서 강제는 아님)
 
 6) 인증/인가(Authorization) 흐름
 
