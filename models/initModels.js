@@ -482,11 +482,6 @@ export function initModels(sequelize) {
         allowNull: false,
         defaultValue: DataTypes.NOW,
       },
-      is_active: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
-      },
     },
     {
       tableName: "libraries",
