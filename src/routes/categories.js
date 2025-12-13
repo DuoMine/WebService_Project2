@@ -70,7 +70,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
       created_at: now,
     });
 
-    return sendOk(res, { categoryId: cat.id });
+    return sendOk(res, "카테고리가 생성되었습니다");
   } catch (err) {
     console.error("POST /categories error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create category");
@@ -130,6 +130,7 @@ router.get("/", async (req, res) => {
       size,
       totalElements: count,
       totalPages: Math.ceil(count / size),
+      sort: "name,ASC",
     });
   } catch (err) {
     console.error("GET /categories error:", err);

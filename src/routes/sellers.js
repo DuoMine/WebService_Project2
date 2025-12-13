@@ -379,7 +379,7 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
     s.updated_at = new Date();
     await s.save();
 
-    return sendOk(res, {});
+    return sendOk(res, "판매자 정보가 수정되었습니다");
   } catch (err) {
     console.error("PUT /sellers/:sellerId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update seller");

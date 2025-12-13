@@ -1,4 +1,3 @@
-import express, { application } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -19,6 +18,8 @@ import categoriesRouter from "./routes/categories.js";
 import sellersRouter from "./routes/sellers.js";
 import cartsRouter from "./routes/carts.js";
 import couponsRouter from "./routes/coupons.js"
+import express from "express";
+import { globalLimiter, authLimiter } from "./middlewares/rateLimit.js";
 
 dotenv.config();
 
@@ -35,8 +36,9 @@ app.use(cors({
   origin: "http://localhost:5173",
   credentials: true,
 }));
-app.use(express.json());
 app.use(cookieParser());
+app.use(express.json({ limit: "1mb" }));
+app.use(globalLimiter);
 
 // Health Check
 app.get("/health", (req, res) => {
@@ -44,7 +46,7 @@ app.get("/health", (req, res) => {
 });
 
 // TODO: 각 리소스 라우트 연결
-app.use("/auth", authRouter);  
+app.use("/auth", authLimiter, authRouter);  
 app.use("/users", usersRouter); 
 app.use("/books", booksRouter);
 app.use("/reviews", reviewsRouter);

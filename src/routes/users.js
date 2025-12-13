@@ -449,8 +449,12 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
     });
 
     return sendOk(res, {
-      items: rows.map(toUserSafe),
-      meta: { page, size, total: count, sort },
+      content: rows.map(toUserSafe),
+      page, 
+      size,       
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
+      sort,
     });
   } catch (err) {
     console.error("GET /users error:", err);

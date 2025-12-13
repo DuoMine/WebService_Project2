@@ -139,6 +139,7 @@ router.get("/", requireAuth, async (req, res) => {
       size,
       totalElements: count,
       totalPages: Math.ceil(count / size),
+      sort: "created_at,DESC"
     });
   } catch (err) {
     console.error("GET /favorites error:", err);
@@ -260,7 +261,7 @@ router.delete("/:favoriteId", requireAuth, async (req, res) => {
     const deleted = await Favorites.destroy({ where: { id: favoriteId, user_id: userId } });
     if (!deleted) return sendError(res, 404, "NOT_FOUND", "favorite not found");
 
-    return sendOk(res, { deleted: true });
+    return sendOk(res, "찜이 취소되었습니다");
   } catch (err) {
     console.error("DELETE /favorites/:favoriteId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete favorite");

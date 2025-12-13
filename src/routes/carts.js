@@ -212,7 +212,6 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
   const size = Math.min(50, Math.max(1, parseInt(req.query.size ?? "10", 10)));
   const offset = (page - 1) * size;
-
   try {
     const { rows, count } = await CartItems.findAndCountAll({
       where: { cart_user_id: userId, is_active: 1 },
@@ -246,6 +245,7 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
       size,
       totalElements: count,
       totalPages: Math.ceil(count / size),
+      sort: "created_at, DESC",
     });
   } catch (err) {
     console.error("GET /carts/:userId error:", err);
@@ -307,7 +307,7 @@ router.put("/:cartItemId", requireAuth, async (req, res) => {
     item.updated_at = new Date();
     await item.save();
 
-    return sendOk(res, {});
+    return sendOk(res, "아이템의 수량을 변경했습니다");
   } catch (err) {
     console.error("PUT /carts/:cartItemId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update cart item");
@@ -349,7 +349,7 @@ router.delete("/:cartItemId", requireAuth, async (req, res) => {
     item.updated_at = new Date();
     await item.save();
 
-    return sendOk(res, {});
+    return sendOk(res, "아이템을 장바구니에서 삭제했습니다");
   } catch (err) {
     console.error("DELETE /carts/:cartItemId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete cart item");
@@ -378,7 +378,7 @@ router.delete("/", requireAuth, async (req, res) => {
       { where: { cart_user_id: userId, is_active: 1 } }
     );
 
-    return sendOk(res, {});
+    return sendOk(res, "장바구니를 비웠습니다");
   } catch (err) {
     console.error("DELETE /carts error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to clear cart");

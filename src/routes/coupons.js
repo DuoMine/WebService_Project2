@@ -225,7 +225,7 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
     });
 
     return sendOk(res, {
-      items: rows.map((c) => ({
+      content: rows.map((c) => ({
         id: c.id,
         name: c.name,
         discount_rate: c.discount_rate,
@@ -366,6 +366,7 @@ router.post("/:couponId/assign", requireAuth, requireRole("ADMIN"), async (req, 
 // 유저 쿠폰 확인 (본인 또는 ADMIN)
 router.get("/:userId", requireAuth, async (req, res) => {
   const userId = parseId(req.params.userId);
+  const { page, size, offset } = parsePagination(req.query);
   if (!userId) return sendError(res, 400, "BAD_REQUEST", "invalid userId");
 
   const auth = req.auth;
@@ -378,7 +379,7 @@ router.get("/:userId", requireAuth, async (req, res) => {
   const where = { user_id: userId };
   if (show !== "all") where.status = "ISSUED";
 
-  const sortResult = parseSort(req.query.sort, USER_COUPON_SORT_MAP, "issued_at,DESC");
+  const { order, sort } = parseSort(req.query.sort, USER_COUPON_SORT_MAP, "issued_at,DESC");
 
   try {
     const rows = await UserCoupons.findAll({
@@ -389,13 +390,11 @@ router.get("/:userId", requireAuth, async (req, res) => {
           attributes: ["id", "name", "discount_rate", "start_at", "end_at", "status"],
         },
       ],
-      order: sortResult.order,
+      order: order,
     });
 
-    return sendOk(res, {
-      user_id: userId,
-      sort: sortResult.sort,
-      items: rows.map((uc) => ({
+    return sendOk(res, {   
+      content: rows.map((uc) => ({
         id: uc.id,
         coupon_id: uc.coupon_id,
         status: uc.status,
@@ -412,6 +411,11 @@ router.get("/:userId", requireAuth, async (req, res) => {
             }
           : null,
       })),
+      page,
+      size,
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
+      sort,
     });
   } catch (err) {
     console.error("GET /coupons/:userId error:", err);
@@ -535,7 +539,7 @@ router.delete("/:couponId", requireAuth, requireRole("ADMIN"), async (req, res) 
       await Coupons.destroy({ where: { id: couponId }, transaction: t });
     });
 
-    return sendOk(res, { deleted: true, coupon_id: couponId });
+    return sendOk(res, "쿠폰이 삭제되었습니다" );
   } catch (err) {
     console.error("DELETE /coupons/:couponId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete coupon");

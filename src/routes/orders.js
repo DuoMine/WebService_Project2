@@ -389,7 +389,7 @@ router.get("/", requireAuth, async (req, res) => {
     });
 
     return sendOk(res, {
-      items: rows.map((o) => ({
+      content: rows.map((o) => ({
         orderId: o.id,
         status: o.status,
         subtotalAmount: o.subtotal_amount,
@@ -397,7 +397,11 @@ router.get("/", requireAuth, async (req, res) => {
         totalAmount: o.total_amount,
         createdAt: o.created_at,
       })),
-      meta: { page, size, total: count, sort },
+      page, 
+      size, 
+      totalElements: count,
+      totalPages: Math.ceil(count / size), 
+      sort,
     });
   } catch (err) {
     console.error("GET /orders error:", err);
@@ -461,8 +465,7 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
     });
 
     return sendOk(res, {
-      userId: targetUserId,
-      items: rows.map((o) => ({
+      content: rows.map((o) => ({
         orderId: o.id,
         status: o.status,
         subtotalAmount: o.subtotal_amount,
@@ -470,7 +473,11 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
         totalAmount: o.total_amount,
         createdAt: o.created_at,
       })),
-      meta: { page, size, total: count, sort },
+      page, 
+      size, 
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
+      sort,
     });
   } catch (err) {
     console.error("GET /orders/:userId error:", err);

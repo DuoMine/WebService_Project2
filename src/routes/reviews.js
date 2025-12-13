@@ -129,10 +129,10 @@ router.get("/", requireAuth, async (req, res) => {
   if (q) where.comment = { [Op.like]: `%${q}%` };
 
   try {
-    const total = await Reviews.count({ where });
+    const count = await Reviews.count({ where });
     const me = Number(req.auth.userId);
 
-    const items = await Reviews.findAll({
+    const content = await Reviews.findAll({
       where,
       limit: size,
       offset,
@@ -171,7 +171,14 @@ router.get("/", requireAuth, async (req, res) => {
       },
     });
 
-    return sendOk(res, { items, meta: { page, size, total, sort } });
+    return sendOk(res, { 
+      content, 
+      page, 
+      size, 
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
+      sort, 
+    });
   } catch (err) {
     console.error("GET /reviews error:", err);
     return sendError(res, 500, "INTERNAL_ERROR", "failed to fetch reviews");
@@ -427,7 +434,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     if (!canMutate(req, review.user_id)) return sendError(res, 403, "FORBIDDEN", "no permission");
 
     await Reviews.destroy({ where: { id: reviewId } });
-    return sendOk(res, { ok: true });
+    return sendOk(res, "리뷰가 삭제되었습니다");
   } catch (err) {
     console.error("DELETE /reviews/:id error:", err);
     return sendError(res, 500, "INTERNAL_ERROR", "failed to delete review");
@@ -476,10 +483,10 @@ router.get("/:reviewId/comments", requireAuth, async (req, res) => {
     const exists = await Reviews.count({ where: { id: reviewId } });
     if (!exists) return sendError(res, 404, "NOT_FOUND", "review not found");
 
-    const total = await Comments.count({ where: { review_id: reviewId, deleted_at: null } });
+    const count = await Comments.count({ where: { review_id: reviewId, deleted_at: null } });
     const me = Number(req.auth.userId);
 
-    const items = await Comments.findAll({
+    const content = await Comments.findAll({
       where: { review_id: reviewId, deleted_at: null },
       limit: size,
       offset,
@@ -509,7 +516,14 @@ router.get("/:reviewId/comments", requireAuth, async (req, res) => {
       },
     });
 
-    return sendOk(res, { items, meta: { page, size, total, sort } });
+    return sendOk(res, { 
+      content, 
+      page, 
+      size, 
+      totalElements: count,
+      totalPages: Math.ceil(count / size),
+      sort,
+    });
   } catch (err) {
     console.error("GET /reviews/:reviewId/comments error:", err);
     return sendError(res, 500, "INTERNAL_ERROR", "failed to fetch comments");
@@ -682,7 +696,7 @@ router.delete("/:reviewId/comments/:commentId", requireAuth, async (req, res) =>
     if (!canMutate(req, comment.user_id)) return sendError(res, 403, "FORBIDDEN", "no permission");
 
     await comment.update({ deleted_at: new Date(), updated_at: new Date() });
-    return sendOk(res, { ok: true });
+    return sendOk(res, "댓글이 삭제되었습니다");
   } catch (err) {
     console.error("DELETE /reviews/:reviewId/comments/:commentId error:", err);
     return sendError(res, 500, "INTERNAL_ERROR", "failed to delete comment");
