@@ -299,11 +299,16 @@ router.post("/", requireAuth, async (req, res) => {
  *         schema: { type: string, example: "id,ASC" }
  *         description: "items 정렬 (허용: id, book_id, quantity, unit_price, total_amount, created_at)"
  *     responses:
- *       200: description: 조회 성공
- *       400: description: BAD_REQUEST (invalid order id)
- *       401: description: UNAUTHORIZED
- *       404: description: NOT_FOUND (order not found)
- *       500: description: INTERNAL_SERVER_ERROR
+ *       200: 
+ *          description: 조회 성공
+ *       400: 
+ *          description: BAD_REQUEST (invalid order id)
+ *       401: 
+ *          description: UNAUTHORIZED
+ *       404: 
+ *          description: NOT_FOUND (order not found)
+ *       500: 
+ *          description: INTERNAL_SERVER_ERROR
  */
 router.get("/detail/:id", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -371,9 +376,12 @@ router.get("/detail/:id", requireAuth, async (req, res) => {
  *         schema: { type: string, example: "CREATED" }
  *         description: "CREATED | CANCELLED"
  *     responses:
- *       200: description: 조회 성공
- *       401: description: UNAUTHORIZED
- *       500: description: INTERNAL_SERVER_ERROR
+ *       200: 
+ *          description: 조회 성공
+ *       401: 
+ *          description: UNAUTHORIZED
+ *       500: 
+ *          description: INTERNAL_SERVER_ERROR
  */
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -446,11 +454,16 @@ router.get("/", requireAuth, async (req, res) => {
  *         schema: { type: string, example: "CREATED" }
  *         description: "CREATED | CANCELLED"
  *     responses:
- *       200: description: 조회 성공
- *       400: description: BAD_REQUEST (invalid userId)
- *       401: description: UNAUTHORIZED
- *       403: description: FORBIDDEN
- *       500: description: INTERNAL_SERVER_ERROR
+ *       200: 
+ *          description: 조회 성공
+ *       400: 
+ *          description: BAD_REQUEST (invalid userId)
+ *       401: 
+ *          description: UNAUTHORIZED
+ *       403: 
+ *          description: FORBIDDEN
+ *       500: 
+ *          description: INTERNAL_SERVER_ERROR
  */
 router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const targetUserId = parseId(req.params.userId);
