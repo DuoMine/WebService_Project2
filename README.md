@@ -340,7 +340,6 @@ POST /reviews/:reviewId/comments/:commentId/likes
 
 DELETE /reviews/:reviewId/comments/:commentId/likes
 
-
 8) 목록 조회 공통 규격(페이지네이션/검색/정렬)
 
 Pagination: page, size
