@@ -366,7 +366,7 @@ router.get("/me", requireAuth, async (req, res) => {
  *             properties:
  *               name: { type: string }
  *               phone_number: { type: string, nullable: true }
- *               birth_year: { type: integer }
+ *               birth_year: { type: integer, example: 2000 }
  *               gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
  *               region_code: { type: string }
  *     responses:
