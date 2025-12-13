@@ -1,4 +1,4 @@
-import express from "express";
+import express, { application } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -19,9 +19,8 @@ import likesRouter from "./routes/likes.js";
 import authorsRouter from "./routes/authors.js";
 import categoriesRouter from "./routes/categories.js";
 import paymentsRouter from "./routes/payments.js";
-
-
-
+import sellersRouter from "./routes/sellers.js";
+import cartsRouter from "./routes/carts.js";
 
 dotenv.config();
 
@@ -59,6 +58,8 @@ app.use("/likes", likesRouter);
 app.use("/authors", authorsRouter);
 app.use("/categories", categoriesRouter);
 app.use("/payments", paymentsRouter);
+app.use("/sellers", sellersRouter);
+app.use("/carts", cartsRouter);
 
 // Swagger
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

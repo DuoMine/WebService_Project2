@@ -735,11 +735,6 @@ export function initModels(sequelize) {
         allowNull: false,
         defaultValue: 10,
       },
-      status: {
-        type: DataTypes.ENUM("ACTIVE", "SUSPENDED"),
-        allowNull: false,
-        defaultValue: "ACTIVE",
-      },
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -978,11 +973,143 @@ export function initModels(sequelize) {
     }
   );
 
-  // 🔗 여기서부터 associations 묶을 수 있음 (원하면 나중에 채우자)
-  // 예시:
-  // Books.belongsTo(Sellers, { foreignKey: "seller_id" });
-  // Users.hasMany(Orders, { foreignKey: "user_id" });
-  // Orders.belongsTo(Users, { foreignKey: "user_id" });
+  // ----------------------------
+  // Associations (FK 기반)
+  // ----------------------------
+
+  // Users - UserRefreshTokens (1:N)
+  UserRefreshTokens.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(UserRefreshTokens, { foreignKey: "user_id", as: "refreshTokens" });
+
+  // Sellers - Books (1:N)
+  Books.belongsTo(Sellers, { foreignKey: "seller_id", as: "seller" });
+  Sellers.hasMany(Books, { foreignKey: "seller_id", as: "books" });
+
+  // Books - Authors (M:N) through book_authors
+  Books.belongsToMany(Authors, {
+    through: BookAuthors,
+    foreignKey: "book_id",
+    otherKey: "author_id",
+    as: "authors",
+  });
+  Authors.belongsToMany(Books, {
+    through: BookAuthors,
+    foreignKey: "author_id",
+    otherKey: "book_id",
+    as: "books",
+  });
+
+  // Books - Categories (M:N) through book_categories
+  Books.belongsToMany(Categories, {
+    through: BookCategories,
+    foreignKey: "book_id",
+    otherKey: "category_id",
+    as: "categories",
+  });
+  Categories.belongsToMany(Books, {
+    through: BookCategories,
+    foreignKey: "category_id",
+    otherKey: "book_id",
+    as: "books",
+  });
+
+  // Categories - Categories (self, 1:N) parent-child
+  Categories.belongsTo(Categories, { foreignKey: "parent_id", as: "parent" });
+  Categories.hasMany(Categories, { foreignKey: "parent_id", as: "children" });
+
+  // Favorites (Users 1:N Favorites, Books 1:N Favorites)
+  Favorites.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(Favorites, { foreignKey: "user_id", as: "favorites" });
+
+  Favorites.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(Favorites, { foreignKey: "book_id", as: "favorites" });
+
+  // Libraries (Users 1:N Libraries, Books 1:N Libraries)
+  Libraries.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(Libraries, { foreignKey: "user_id", as: "libraries" });
+
+  Libraries.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(Libraries, { foreignKey: "book_id", as: "libraries" });
+
+  // Carts (Users 1:1 Carts)  - carts.user_id is PK + FK
+  Carts.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasOne(Carts, { foreignKey: "user_id", as: "cart" });
+
+  // CartItems (Carts 1:N CartItems, Books 1:N CartItems)
+  CartItems.belongsTo(Carts, { foreignKey: "cart_user_id", targetKey: "user_id", as: "cart" });
+  Carts.hasMany(CartItems, { foreignKey: "cart_user_id", sourceKey: "user_id", as: "items" });
+
+  CartItems.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(CartItems, { foreignKey: "book_id", as: "cartItems" });
+
+  // Reviews (Users 1:N Reviews, Books 1:N Reviews)
+  Reviews.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(Reviews, { foreignKey: "user_id", as: "reviews" });
+
+  Reviews.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(Reviews, { foreignKey: "book_id", as: "reviews" });
+
+  // ReviewLikes (Reviews 1:N ReviewLikes, Users 1:N ReviewLikes)
+  ReviewLikes.belongsTo(Reviews, { foreignKey: "review_id", as: "review" });
+  Reviews.hasMany(ReviewLikes, { foreignKey: "review_id", as: "likes" });
+
+  ReviewLikes.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(ReviewLikes, { foreignKey: "user_id", as: "reviewLikes" });
+
+  // Comments (Reviews 1:N Comments, Users 1:N Comments)
+  Comments.belongsTo(Reviews, { foreignKey: "review_id", as: "review" });
+  Reviews.hasMany(Comments, { foreignKey: "review_id", as: "comments" });
+
+  Comments.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(Comments, { foreignKey: "user_id", as: "comments" });
+
+  // CommentLikes (Comments 1:N CommentLikes, Users 1:N CommentLikes)
+  CommentLikes.belongsTo(Comments, { foreignKey: "comment_id", as: "comment" });
+  Comments.hasMany(CommentLikes, { foreignKey: "comment_id", as: "likes" });
+
+  CommentLikes.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(CommentLikes, { foreignKey: "user_id", as: "commentLikes" });
+
+  // BookViews (Books 1:N BookViews, Users 1:N BookViews) - user_id can be null
+  BookViews.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(BookViews, { foreignKey: "book_id", as: "views" });
+
+  BookViews.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(BookViews, { foreignKey: "user_id", as: "bookViews" });
+
+  // Orders (Users 1:N Orders)
+  Orders.belongsTo(Users, { foreignKey: "user_id", as: "user" });
+  Users.hasMany(Orders, { foreignKey: "user_id", as: "orders" });
+
+  // OrderItems (Orders 1:N OrderItems, Books 1:N OrderItems)
+  OrderItems.belongsTo(Orders, { foreignKey: "order_id", as: "order" });
+  Orders.hasMany(OrderItems, { foreignKey: "order_id", as: "items" });
+
+  OrderItems.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(OrderItems, { foreignKey: "book_id", as: "orderItems" });
+
+  // OrderCoupons (Orders 1:N OrderCoupons, Coupons 1:N OrderCoupons)
+  OrderCoupons.belongsTo(Orders, { foreignKey: "order_id", as: "order" });
+  Orders.hasMany(OrderCoupons, { foreignKey: "order_id", as: "orderCoupons" });
+
+  OrderCoupons.belongsTo(Coupons, { foreignKey: "coupon_id", as: "coupon" });
+  Coupons.hasMany(OrderCoupons, { foreignKey: "coupon_id", as: "orderCoupons" });
+
+  // BookDiscounts (Books 1:N BookDiscounts)
+  BookDiscounts.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(BookDiscounts, { foreignKey: "book_id", as: "discounts" });
+
+  // Settlements (Sellers 1:N Settlements)
+  Settlements.belongsTo(Sellers, { foreignKey: "seller_id", as: "seller" });
+  Sellers.hasMany(Settlements, { foreignKey: "seller_id", as: "settlements" });
+
+  // SettlementItems (Settlements 1:N SettlementItems, Books 1:N SettlementItems)
+  SettlementItems.belongsTo(Settlements, { foreignKey: "settlement_id", as: "settlement" });
+  Settlements.hasMany(SettlementItems, { foreignKey: "settlement_id", as: "items" });
+
+  SettlementItems.belongsTo(Books, { foreignKey: "book_id", as: "book" });
+  Books.hasMany(SettlementItems, { foreignKey: "book_id", as: "settlementItems" });
+
 
   return {
     Authors,

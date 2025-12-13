@@ -15,7 +15,7 @@ import {
 import { sendError } from "../utils/http.js";
 
 const router = Router();
-const { Users, UserRefreshTokens } = models;
+const { Users, UserRefreshTokens, Carts } = models;
 
 // 토큰 해시
 function hashToken(token) {
@@ -89,36 +89,53 @@ router.post("/register", async (req, res) => {
     return sendError(res, 400, "VALIDATION_FAILED", "invalid request body", errors);
   }
 
+  const t = await Users.sequelize.transaction();
   try {
     const { email, phone_number } = value;
 
-    const existing = await Users.findOne({ where: { email } });
+    const existing = await Users.findOne({ where: { email }, transaction: t });
     if (existing) {
+      await t.rollback();
       return sendError(res, 409, "DUPLICATE_RESOURCE", "email already in use", { email });
     }
 
     if (phone_number) {
-      const existingPhone = await Users.findOne({ where: { phone_number } });
+      const existingPhone = await Users.findOne({ where: { phone_number }, transaction: t });
       if (existingPhone) {
+        await t.rollback();
         return sendError(res, 409, "DUPLICATE_RESOURCE", "phone_number already in use", { phone_number });
       }
     }
 
     const password_hash = await bcrypt.hash(value.password, 10);
 
-    const user = await Users.create({
-      email: value.email,
-      password_hash,
-      name: value.name,
-      phone_number: value.phone_number,
-      birth_year: value.birth_year,
-      gender: value.gender,
-      region_code: value.region_code,
-      role: "USER",
-      status: "ACTIVE",
-      created_at: new Date(),
-      updated_at: new Date(),
+    const user = await Users.create(
+      {
+        email: value.email,
+        password_hash,
+        name: value.name,
+        phone_number: value.phone_number,
+        birth_year: value.birth_year,
+        gender: value.gender,
+        region_code: value.region_code,
+        role: "USER",
+        status: "ACTIVE",
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    await Carts.findOrCreate({
+      where: { user_id: user.id },
+      defaults: {
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      transaction: t,
     });
+
+    await t.commit();
 
     return res.status(201).json({
       id: user.id,

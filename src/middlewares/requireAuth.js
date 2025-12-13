@@ -1,20 +1,10 @@
 // src/middlewares/requireAuth.js
 import { verifyAccessToken, ACCESS_COOKIE_NAME } from "../utils/jwt.js";
+import { sendError } from "../utils/http.js";
 import { models } from "../config/db.js";
 import { Op } from "sequelize";
 
 const { Users } = models;
-
-function sendError(res, status, code, message, details = undefined) {
-  return res.status(status).json({
-    timestamp: new Date().toISOString(),
-    path: res.req.originalUrl,
-    status,
-    code,
-    message,
-    details,
-  });
-}
 
 // Access Token 검증 + 유저 로드 (자동 refresh 제거: 과제용으로 명확하게)
 export async function requireAuth(req, res, next) {
