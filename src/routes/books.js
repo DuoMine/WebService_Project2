@@ -469,7 +469,7 @@ router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
     if (summary !== undefined && summary !== null) book.summary = summary;
 
     await book.save();
-    return sendOk(res, {});
+    return sendOk(res, "도서 정보가 수정되었습니다");
   } catch (err) {
     console.error("PUT /books/:bookId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to update book");
@@ -563,7 +563,7 @@ router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req,
     );
 
     await t.commit();
-    return sendOk(res, {});
+    return sendOk(res, "도서 카테고리가 수정되었습니다");
   } catch (err) {
     console.error("PUT /books/:bookId/categories error:", err);
     await t.rollback();
@@ -603,7 +603,7 @@ router.delete("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) =>
     book.deleted_at = new Date();
     await book.save();
 
-    return sendOk(res, {});
+    return sendOk(res, "도서가 삭제되었습니다");
   } catch (err) {
     console.error("DELETE /books/:bookId error:", err);
     return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to delete book");

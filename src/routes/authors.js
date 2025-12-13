@@ -8,7 +8,7 @@ import { parseSort } from "../utils/sort.js";
 import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
-const { Authors } = models;
+const { Authors, BookAuthors } = models;
 
 // ----------------------------
 // helpers
@@ -110,7 +110,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
       created_at: now,
     });
 
-    return sendOk(res, "작가가 등록되었습니다.", { authorId: author.id });
+    return sendOk(res, { authorId: author.id });
   } catch (err) {
     console.error("POST /authors error:", err);
     console.error("sqlMessage:", err?.parent?.sqlMessage);
@@ -377,6 +377,17 @@ router.delete("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) 
   try {
     const author = await Authors.findOne({ where: { id: authorId } });
     if (!author) return sendError(res, 404, "NOT_FOUND", "author not found");
+
+    const used = await BookAuthors.count({ where: { author_id: authorId } });
+    if (used > 0) {
+      return sendError(
+        res,
+        409,
+        "CONFLICT",
+        "author is referenced by books; cannot delete",
+        { authorId, referencedBooks: used }
+      );
+    }
 
     await author.destroy(); // ✅ deleted_at 컬럼 없으니 hard delete
     return sendOk(res, "작가가 삭제되었습니다.");
