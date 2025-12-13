@@ -180,7 +180,7 @@ router.get("/", async (req, res) => {
       createdAt: a.created_at,
     }));
 
-    return sendOK(res, {
+    return sendOk(res, {
       content,
       page,
       size,

@@ -86,9 +86,6 @@ router.post("/", requireAuth, async (req, res) => {
     return sendError(res, 400, "BAD_REQUEST", "invalid coupon_id");
   }
 
-  console.log("auth=", req.auth);
-  console.log("userId=", req.auth?.userId);
-
   try {
     const result = await (sequelize ?? Orders.sequelize).transaction(async (t) => {
       // 1) 카트 아이템 로드 (활성만)
@@ -103,7 +100,6 @@ router.post("/", requireAuth, async (req, res) => {
         where: { cart_user_id: userId, is_active: 1 },
         transaction: t,
       });
-      console.log("cart_items total/mine/mineActive:", total, mine, mineActive);
 
       if (!cartItems || cartItems.length === 0) {
         throw Object.assign(new Error("cart is empty"), { code: "EMPTY_CART" });

@@ -163,9 +163,17 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 
     return sendOk(res, { sellerId: seller.id }, 201);
   } catch (err) {
-    console.error("POST /sellers error:", err);
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create seller");
+  if (err?.name === "SequelizeUniqueConstraintError") {
+    const details = {};
+    for (const e of err.errors ?? []) {
+      if (e.path) details[e.path] = "duplicate";
+    }
+    return sendError(res, 409, "DUPLICATE_RESOURCE", "seller already exists", details);
   }
+
+  console.error("POST /sellers error:", err);
+  return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create seller");
+}
 });
 
 /**

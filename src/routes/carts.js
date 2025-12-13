@@ -125,7 +125,7 @@ router.get("/me", requireAuth, async (req, res) => {
  *       404:
  *         description: book not found
  */
-router.post("", requireAuth, async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const { bookId, quantity } = req.body ?? {};
 
@@ -158,7 +158,7 @@ router.post("", requireAuth, async (req, res) => {
 
     if (existing) {
       existing.quantity += qty;
-      existing.is_active = true;
+      existing.is_active = 1;
       existing.updated_at = new Date();
       await existing.save({ transaction: t });
     } else {
@@ -345,7 +345,7 @@ router.delete("/:cartItemId", requireAuth, async (req, res) => {
 
     if (!item) return sendError(res, 404, "NOT_FOUND", "cart item not found");
 
-    item.is_active = false;
+    item.is_active = 0;
     item.updated_at = new Date();
     await item.save();
 
