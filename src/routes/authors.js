@@ -40,6 +40,7 @@ function parseId(value) {
  *     tags: [Authors]
  *     summary: 작가 등록 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -49,33 +50,16 @@ function parseId(value) {
  *             type: object
  *             required: [penName]
  *             properties:
- *               penName:
- *                 type: string
- *                 example: 김작가
- *               birthYear:
- *                 type: integer
- *                 nullable: true
- *                 example: 1998
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: 장편소설 위주로 집필
+ *               penName: { type: string, example: 김작가 }
+ *               birthYear: { type: integer, nullable: true, example: 1998 }
+ *               description: { type: string, nullable: true, example: 장편소설 위주로 집필 }
  *     responses:
- *       200:
- *         description: 등록 성공
- *       400:
- *         description: VALIDATION_FAILED
- *       401:
- *         description: UNAUTHORIZED
- *       403:
- *         description: FORBIDDEN
- *       500:
- *         description: failed to create author
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// POST /authors (ADMIN) - 작가 생성
-// body: { penName, birthYear?, description? }
-// ----------------------------
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { penName, birthYear, description } = req.body ?? {};
   const errors = {};
@@ -124,6 +108,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *   get:
  *     tags: [Authors]
  *     summary: 작가 목록 조회 (공개)
+ *     security: []   # 전역 security 해제
  *     parameters:
  *       - in: query
  *         name: page
@@ -141,15 +126,9 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         description: "id|createdAt|penName|birthYear + ,ASC|DESC (예: createdAt,DESC)"
  *         example: createdAt,DESC
  *     responses:
- *       200:
- *         description: 조회 성공
- *       500:
- *         description: failed to get authors
+ *       200: { description: OK }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// GET /authors - 목록 + 검색 (공개)
-// query: page, size, q, sort
-// ----------------------------
 router.get("/", async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
   const q = (req.query.q || "").toString().trim();
@@ -201,24 +180,18 @@ router.get("/", async (req, res) => {
  *   get:
  *     tags: [Authors]
  *     summary: 작가 상세 조회 (공개)
+ *     security: []   # 🔓 전역 security 해제
  *     parameters:
  *       - in: path
  *         name: authorId
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       400:
- *         description: invalid authorId
- *       404:
- *         description: author not found
- *       500:
- *         description: failed to get author
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// GET /authors/:authorId - 상세 (공개)
-// ----------------------------
 router.get("/:authorId", async (req, res) => {
   const authorId = parseId(req.params.authorId);
   if (!authorId) return sendError(res, 400, "BAD_REQUEST", "invalid authorId");
@@ -248,6 +221,7 @@ router.get("/:authorId", async (req, res) => {
  *     tags: [Authors]
  *     summary: 작가 수정 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -261,35 +235,17 @@ router.get("/:authorId", async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               penName:
- *                 type: string
- *                 example: 김작가(개정)
- *               birthYear:
- *                 type: integer
- *                 nullable: true
- *                 example: 2001
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: 소개 수정
+ *               penName: { type: string, example: 김작가(개정) }
+ *               birthYear: { type: integer, nullable: true, example: 2001 }
+ *               description: { type: string, nullable: true, example: 소개 수정 }
  *     responses:
- *       200:
- *         description: 수정 성공
- *       400:
- *         description: VALIDATION_FAILED
- *       401:
- *         description: UNAUTHORIZED
- *       403:
- *         description: FORBIDDEN
- *       404:
- *         description: author not found
- *       500:
- *         description: failed to update author
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// PUT /authors/:authorId (ADMIN) - 수정
-// body: { penName?, birthYear?, description? }
-// ----------------------------
 router.put("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const authorId = parseId(req.params.authorId);
   if (!authorId) return sendError(res, 400, "BAD_REQUEST", "invalid authorId");
@@ -347,6 +303,7 @@ router.put("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => 
  *     tags: [Authors]
  *     summary: 작가 삭제 (ADMIN, hard delete)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -354,22 +311,14 @@ router.put("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => 
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       400:
- *         description: invalid authorId
- *       401:
- *         description: UNAUTHORIZED
- *       403:
- *         description: FORBIDDEN
- *       404:
- *         description: author not found
- *       500:
- *         description: failed to delete author
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       409: { description: STATE_CONFLICT }   # 🔹 참조 중이라 삭제 불가
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// DELETE /authors/:authorId (ADMIN) - 삭제 (hard delete)
-// ----------------------------
 router.delete("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const authorId = parseId(req.params.authorId);
   if (!authorId) return sendError(res, 400, "BAD_REQUEST", "invalid authorId");

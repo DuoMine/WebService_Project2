@@ -65,8 +65,8 @@ function validateCommentPatch(body) {
  *     tags: [Reviews]
  *     summary: 리뷰 목록 조회 (필터 + 페이지네이션 + 정렬)
  *     description: |
- *       - filters: bookId, userId, minRating, maxRating, q(코멘트 부분 LIKE)
- *       - 각 리뷰에 commentCount, likeCount, myLiked 포함
+ *       - filters: bookId, userId, minRating, maxRating, q(review.comment LIKE)
+ *       - 각 리뷰에는 commentCount, likeCount, myLiked(0/1)가 포함된다. (서브쿼리 계산)
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -84,8 +84,8 @@ function validateCommentPatch(body) {
  *         schema: { type: integer, minimum: 1, maximum: 5 }
  *       - in: query
  *         name: q
- *         description: "review.comment LIKE 검색"
  *         schema: { type: string }
+ *         description: review.comment LIKE 검색
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
@@ -94,13 +94,17 @@ function validateCommentPatch(body) {
  *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: sort
- *         description: "허용: created_at, updated_at, rating (예: created_at,DESC)"
  *         schema: { type: string, example: "created_at,DESC" }
+ *         description: "허용: created_at, updated_at, rating"
  *     responses:
  *       200:
  *         description: 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid query)
+ *       401:
+ *         description: UNAUTHORIZED
  *       500:
- *         description: failed to fetch reviews
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.get("/", requireAuth, async (req, res) => {
   const { page, size, offset } = parsePagination(req.query, { defaultSize: 20, maxSize: 50 });
@@ -191,7 +195,8 @@ router.get("/", requireAuth, async (req, res) => {
  *   post:
  *     tags: [Reviews]
  *     summary: 리뷰 생성
- *     description: "한 유저가 한 책에 대해 리뷰를 1개만 허용(유니크 제약이 있다고 가정)."
+ *     description: |
+ *       - 한 유저는 한 책에 대해 리뷰를 1개만 허용 (DB 유니크 제약 가정)
  *     security:
  *       - cookieAuth: []
  *     requestBody:
@@ -202,27 +207,20 @@ router.get("/", requireAuth, async (req, res) => {
  *             type: object
  *             required: [bookId, rating]
  *             properties:
- *               bookId:
- *                 type: integer
- *                 example: 1
- *               rating:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 5
- *                 example: 5
- *               comment:
- *                 type: string
- *                 nullable: true
- *                 example: "재밌어요"
+ *               bookId: { type: integer, example: 1 }
+ *               rating: { type: integer, minimum: 1, maximum: 5, example: 5 }
+ *               comment: { type: string, nullable: true, example: "재밌어요" }
  *     responses:
  *       201:
  *         description: 생성 성공
  *       400:
- *         description: invalid body
+ *         description: BAD_REQUEST (invalid body)
+ *       401:
+ *         description: UNAUTHORIZED
  *       409:
- *         description: review already exists for this book
+ *         description: CONFLICT (review already exists for this book)
  *       500:
- *         description: failed to create review
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -274,9 +272,13 @@ router.post("/", requireAuth, async (req, res) => {
  *       200:
  *         description: 성공
  *       400:
- *         description: invalid review id
+ *         description: BAD_REQUEST (invalid review id)
+ *       401:
+ *         description: UNAUTHORIZED
  *       404:
- *         description: review not found
+ *         description: NOT_FOUND (review not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.get("/:id", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.id);
@@ -349,25 +351,24 @@ router.get("/:id", requireAuth, async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               rating:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 5
- *                 example: 4
- *               comment:
- *                 type: string
- *                 nullable: true
- *                 example: "수정된 후기"
+ *               rating: { type: integer, minimum: 1, maximum: 5, example: 4 }
+ *               comment: { type: string, nullable: true, example: "수정된 후기" }
  *               bookId:
- *                 description: "변경 불가(보내면 400)"
  *                 type: integer
+ *                 description: 변경 불가 (보내면 400)
  *     responses:
  *       200:
  *         description: 수정 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid body / invalid id)
+ *       401:
+ *         description: UNAUTHORIZED
  *       403:
- *         description: no permission
+ *         description: FORBIDDEN (no permission)
  *       404:
- *         description: review not found
+ *         description: NOT_FOUND (review not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.patch("/:id", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.id);
@@ -418,10 +419,16 @@ router.patch("/:id", requireAuth, async (req, res) => {
  *     responses:
  *       200:
  *         description: 삭제 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid review id)
+ *       401:
+ *         description: UNAUTHORIZED
  *       403:
- *         description: no permission
+ *         description: FORBIDDEN (no permission)
  *       404:
- *         description: review not found
+ *         description: NOT_FOUND (review not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.delete("/:id", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.id);
@@ -447,6 +454,9 @@ router.delete("/:id", requireAuth, async (req, res) => {
  *   get:
  *     tags: [Comments]
  *     summary: 특정 리뷰의 댓글 목록 조회 (페이지네이션 + likeCount/myLiked)
+ *     description: |
+ *       - deleted_at IS NULL 인 댓글만 반환
+ *       - 각 댓글에는 likeCount, myLiked(0/1)가 포함된다. (서브쿼리 계산)
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -462,13 +472,19 @@ router.delete("/:id", requireAuth, async (req, res) => {
  *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: sort
- *         description: "허용: created_at, updated_at (기본 created_at,ASC)"
  *         schema: { type: string, example: "created_at,ASC" }
+ *         description: "허용: created_at, updated_at"
  *     responses:
  *       200:
  *         description: 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid reviewId / invalid query)
+ *       401:
+ *         description: UNAUTHORIZED
  *       404:
- *         description: review not found
+ *         description: NOT_FOUND (review not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.get("/:reviewId/comments", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -551,14 +567,18 @@ router.get("/:reviewId/comments", requireAuth, async (req, res) => {
  *             type: object
  *             required: [content]
  *             properties:
- *               content:
- *                 type: string
- *                 example: "댓글입니다"
+ *               content: { type: string, example: "댓글입니다" }
  *     responses:
  *       201:
  *         description: 생성 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid body / invalid reviewId)
+ *       401:
+ *         description: UNAUTHORIZED
  *       404:
- *         description: review not found
+ *         description: NOT_FOUND (review not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.post("/:reviewId/comments", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -615,16 +635,14 @@ router.post("/:reviewId/comments", requireAuth, async (req, res) => {
  *             type: object
  *             required: [content]
  *             properties:
- *               content:
- *                 type: string
- *                 example: "수정된 댓글"
+ *               content: { type: string, example: "수정된 댓글" }
  *     responses:
- *       200:
- *         description: 수정 성공
- *       403:
- *         description: no permission
- *       404:
- *         description: comment not found
+ *       200: { description: 수정 성공 }
+ *       400: { description: BAD_REQUEST (invalid id / invalid body) }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN (no permission) }
+ *       404: { description: NOT_FOUND (comment not found) }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.patch("/:reviewId/comments/:commentId", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -675,12 +693,12 @@ router.patch("/:reviewId/comments/:commentId", requireAuth, async (req, res) => 
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       403:
- *         description: no permission
- *       404:
- *         description: comment not found
+ *       200: { description: 삭제 성공 }
+ *       400: { description: BAD_REQUEST (invalid id) }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN (no permission) }
+ *       404: { description: NOT_FOUND (comment not found) }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.delete("/:reviewId/comments/:commentId", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -709,6 +727,9 @@ router.delete("/:reviewId/comments/:commentId", requireAuth, async (req, res) =>
  *   post:
  *     tags: [ReviewLikes]
  *     summary: 리뷰 좋아요 ON
+ *     description: |
+ *       - 이미 row가 있으면 is_active=1로 갱신
+ *       - 없으면 생성
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -717,23 +738,11 @@ router.delete("/:reviewId/comments/:commentId", requireAuth, async (req, res) =>
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 좋아요 성공
- *       404:
- *         description: review not found
- *   delete:
- *     tags: [ReviewLikes]
- *     summary: 리뷰 좋아요 OFF
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: reviewId
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: 좋아요 취소 성공
+ *       200: { description: 좋아요 성공 }
+ *       400: { description: BAD_REQUEST (invalid reviewId) }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: NOT_FOUND (review not found) }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.post("/:reviewId/likes", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -764,6 +773,28 @@ router.post("/:reviewId/likes", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /reviews/{reviewId}/likes:
+ *   delete:
+ *     tags: [ReviewLikes]
+ *     summary: 리뷰 좋아요 OFF
+ *     description: |
+ *       - row가 있으면 is_active=0으로 갱신
+ *       - row가 없어도 200 반환(멱등)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: 좋아요 취소 성공 }
+ *       400: { description: BAD_REQUEST (invalid reviewId) }
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
+ */
 router.delete("/:reviewId/likes", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
   if (!reviewId) return sendError(res, 400, "BAD_REQUEST", "invalid review id");
@@ -787,6 +818,9 @@ router.delete("/:reviewId/likes", requireAuth, async (req, res) => {
  *   post:
  *     tags: [CommentLikes]
  *     summary: 댓글 좋아요 ON
+ *     description: |
+ *       - 이미 좋아요 row가 존재하면 is_active=1로 갱신
+ *       - 존재하지 않으면 새로 생성
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -801,25 +835,14 @@ router.delete("/:reviewId/likes", requireAuth, async (req, res) => {
  *     responses:
  *       200:
  *         description: 좋아요 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid reviewId or commentId)
+ *       401:
+ *         description: UNAUTHORIZED
  *       404:
- *         description: comment not found
- *   delete:
- *     tags: [CommentLikes]
- *     summary: 댓글 좋아요 OFF
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: reviewId
- *         required: true
- *         schema: { type: integer }
- *       - in: path
- *         name: commentId
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: 좋아요 취소 성공
+ *         description: NOT_FOUND (comment not found)
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.post("/:reviewId/comments/:commentId/likes", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
@@ -853,6 +876,36 @@ router.post("/:reviewId/comments/:commentId/likes", requireAuth, async (req, res
   }
 });
 
+/**
+ * @openapi
+ * /reviews/{reviewId}/comments/{commentId}/likes:
+ *   delete:
+ *     tags: [CommentLikes]
+ *     summary: 댓글 좋아요 OFF
+ *     description: |
+ *       - 좋아요 row가 있으면 is_active=0으로 갱신
+ *       - row가 없어도 200 반환 (멱등)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 좋아요 취소 성공
+ *       400:
+ *         description: BAD_REQUEST (invalid reviewId or commentId)
+ *       401:
+ *         description: UNAUTHORIZED
+ *       500:
+ *         description: INTERNAL_SERVER_ERROR
+ */
 router.delete("/:reviewId/comments/:commentId/likes", requireAuth, async (req, res) => {
   const reviewId = parseId(req.params.reviewId);
   const commentId = parseId(req.params.commentId);

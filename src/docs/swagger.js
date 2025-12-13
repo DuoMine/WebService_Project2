@@ -3,7 +3,10 @@ import swaggerJsdoc from "swagger-jsdoc";
 export const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: "3.0.0",
-    info: { title: "Online Bookstore API", version: "1.0.0" },
+    info: {
+      title: "Online Bookstore API",
+      version: "1.0.0",
+    },
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -18,6 +21,10 @@ export const swaggerSpec = swaggerJsdoc({
         },
       },
     },
-    apis: ["./src/routes/*.js"],
-  }
+    security: [
+      { bearerAuth: [] },
+      { cookieAuth: [] },
+    ],
+  },
+  apis: ["./src/routes/*.js"],
 });

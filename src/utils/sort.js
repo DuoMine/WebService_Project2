@@ -9,7 +9,7 @@ export function parseSort(sortRaw, fieldMap, defaultSort) {
   const fallback = {
     order: [
       [fieldMap[df], defaultDir],
-      ["id", "DESC"], // ✅ tie-breaker
+      ["id", "DESC"],
     ],
     sort: `${df},${defaultDir}`,
   };
@@ -32,7 +32,7 @@ export function parseSort(sortRaw, fieldMap, defaultSort) {
   return {
     order: [
       [col, dirSafe],
-      ["id", "DESC"], // ✅ 항상 고정
+      ["id", "DESC"], // 항상 고정
     ],
     sort: `${field},${dirSafe}`,
   };

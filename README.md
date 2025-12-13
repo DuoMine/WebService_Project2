@@ -24,3 +24,5 @@ JWT 인증
 1. Refresh Token 쿠키 디코드
 2. DB의 해당 row의 revoked_at = now()
 3. access + refresh 쿠키 삭제
+
+“쿠폰 적용은 템플릿 기준으로 기록하며 발급본 ID는 별도 저장하지 않는다

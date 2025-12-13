@@ -24,6 +24,7 @@ const LIBRARY_SORT_FIELDS = {
  *     tags: [Libraries]
  *     summary: 라이브러리에 도서 추가
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -33,25 +34,16 @@ const LIBRARY_SORT_FIELDS = {
  *             type: object
  *             required: [bookId]
  *             properties:
- *               bookId:
- *                 type: integer
- *                 example: 1
+ *               bookId: { type: integer, example: 1 }
  *     responses:
- *       201:
- *         description: 라이브러리 추가 성공
- *       200:
- *         description: 이미 존재 (중복)
- *       400:
- *         description: bookId must be positive integer
- *       404:
- *         description: book not found
- *       500:
- *         description: failed to add library item
+ *       201: { description: Created }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       409: { description: STATE_CONFLICT }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ---------------------------------------------------------------------
-// POST /libraries
-// ---------------------------------------------------------------------
-router.post("", requireAuth, async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const bookId = Number(req.body?.bookId);
 
@@ -72,15 +64,11 @@ router.post("", requireAuth, async (req, res) => {
     });
 
     if (existing) {
-      return sendOk(res, {
-        itemId: existing.id,
-        bookId: existing.book_id,
-        bookTitle: existing.book?.title ?? null,
-        addedAt: existing.created_at,
-        duplicated: true,
+      return sendError(res, 409, "STATE_CONFLICT", "already in library", {
+        libraryId: existing.id,
+        bookId: existing.book_id,  
       });
     }
-
     const now = new Date();
     const created = await Libraries.create({
       user_id: userId,
@@ -113,6 +101,7 @@ router.post("", requireAuth, async (req, res) => {
  *     tags: [Libraries]
  *     summary: 내 라이브러리 목록 조회
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
@@ -123,18 +112,12 @@ router.post("", requireAuth, async (req, res) => {
  *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: sort
- *         schema:
- *           type: string
- *           example: created_at,DESC
+ *         schema: { type: string, example: created_at,DESC }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       500:
- *         description: failed to get library list
+ *       200: { description: OK }
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ---------------------------------------------------------------------
-// GET /libraries
-// ---------------------------------------------------------------------
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const { page, size, offset } = parsePagination(req.query);
@@ -175,8 +158,9 @@ router.get("/", requireAuth, async (req, res) => {
  * /libraries/{libraryId}:
  *   get:
  *     tags: [Libraries]
- *     summary: 라이브러리 단건 조회
+ *     summary: 라이브러리 단건 조회 (본인)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -184,18 +168,12 @@ router.get("/", requireAuth, async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       400:
- *         description: libraryId must be integer
- *       404:
- *         description: library item not found
- *       500:
- *         description: failed to get library item
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ---------------------------------------------------------------------
-// GET /libraries/:libraryId
-// ---------------------------------------------------------------------
 router.get("/:libraryId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const libraryId = Number(req.params.libraryId);
@@ -237,8 +215,9 @@ router.get("/:libraryId", requireAuth, async (req, res) => {
  * /libraries/{itemId}:
  *   delete:
  *     tags: [Libraries]
- *     summary: 라이브러리 도서 삭제
+ *     summary: 라이브러리 도서 삭제 (본인)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -246,18 +225,12 @@ router.get("/:libraryId", requireAuth, async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       400:
- *         description: itemId must be positive integer
- *       404:
- *         description: library item not found
- *       500:
- *         description: failed to delete library item
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ---------------------------------------------------------------------
-// DELETE /libraries/:itemId
-// ---------------------------------------------------------------------
 router.delete("/:itemId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const itemId = Number(req.params.itemId);

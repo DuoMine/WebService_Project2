@@ -16,6 +16,7 @@ const { Categories } = models;
  *     tags: [Categories]
  *     summary: 카테고리 등록 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -25,26 +26,16 @@ const { Categories } = models;
  *             type: object
  *             required: [name]
  *             properties:
- *               name:
- *                 type: string
- *                 example: 소설
- *               parentId:
- *                 type: integer
- *                 nullable: true
- *                 example: 1
+ *               name: { type: string, example: 소설 }
+ *               parentId: { type: integer, nullable: true, example: 1 }
  *     responses:
- *       200:
- *         description: 카테고리 생성 성공
- *       400:
- *         description: validation failed
- *       409:
- *         description: category name already exists
- *       500:
- *         description: failed to create category
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       409: { description: DUPLICATE_RESOURCE }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// POST /categories (ADMIN)
-// ----------------------------
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { name, parentId } = req.body ?? {};
   const errors = {};
@@ -82,7 +73,8 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  * /categories:
  *   get:
  *     tags: [Categories]
- *     summary: 카테고리 목록 조회
+ *     summary: 카테고리 목록 조회 (공개)
+ *     security: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -94,14 +86,9 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         name: q
  *         schema: { type: string }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       500:
- *         description: failed to get categories
+ *       200: { description: OK }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// GET /categories
-// ----------------------------
 router.get("/", async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
   const q = (req.query.q || "").toString().trim();
@@ -143,25 +130,19 @@ router.get("/", async (req, res) => {
  * /categories/{categoryId}:
  *   get:
  *     tags: [Categories]
- *     summary: 카테고리 상세 조회
+ *     summary: 카테고리 상세 조회 (공개)
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: categoryId
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       400:
- *         description: invalid categoryId
- *       404:
- *         description: category not found
- *       500:
- *         description: failed to get category
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// GET /categories/:categoryId
-// ----------------------------
 router.get("/:categoryId", async (req, res) => {
   const categoryId = parseInt(req.params.categoryId, 10);
   if (!categoryId) {
@@ -191,6 +172,7 @@ router.get("/:categoryId", async (req, res) => {
  *     tags: [Categories]
  *     summary: 카테고리 수정 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -198,29 +180,23 @@ router.get("/:categoryId", async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     requestBody:
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               name:
- *                 type: string
- *               parentId:
- *                 type: integer
- *                 nullable: true
+ *               name: { type: string, example: "소설(개정)" }
+ *               parentId: { type: integer, nullable: true, example: 1 }
  *     responses:
- *       200:
- *         description: 수정 성공
- *       400:
- *         description: validation failed
- *       404:
- *         description: category not found
- *       500:
- *         description: failed to update category
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       409: { description: DUPLICATE_RESOURCE }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// PUT /categories/:categoryId (ADMIN)
-// ----------------------------
 router.put("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const categoryId = parseInt(req.params.categoryId, 10);
   if (!categoryId) {
@@ -230,8 +206,17 @@ router.put("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) =
   const { name, parentId } = req.body ?? {};
   const errors = {};
 
-  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
-    errors.name = "name must be non-empty string";
+  if (name !== undefined) {
+    const trimmed = name.trim();
+    const exists = await Categories.findOne({
+      where: {
+        name: trimmed,
+        id: { [Op.ne]: categoryId }, // 자기 자신 제외
+      },
+    });
+    if (exists) {
+      return sendError(res, 409, "DUPLICATE_RESOURCE", "category name already exists", { name: trimmed });
+    }
   }
 
   if (Object.keys(errors).length > 0) {
@@ -260,6 +245,7 @@ router.put("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) =
  *     tags: [Categories]
  *     summary: 카테고리 삭제 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -267,18 +253,13 @@ router.put("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) =
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       400:
- *         description: invalid categoryId
- *       404:
- *         description: category not found
- *       500:
- *         description: failed to delete category
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// DELETE /categories/:categoryId (ADMIN)
-// ----------------------------
 router.delete("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const categoryId = parseInt(req.params.categoryId, 10);
   if (!categoryId) {
@@ -289,7 +270,7 @@ router.delete("/:categoryId", requireAuth, requireRole("ADMIN"), async (req, res
     const cat = await Categories.findOne({ where: { id: categoryId } });
     if (!cat) return sendError(res, 404, "NOT_FOUND", "category not found");
 
-    await cat.save(); // (현재 로직 기준)
+    await cat.destroy(); 
     return sendOk(res, "카테고리가 삭제되었습니다.");
   } catch (err) {
     console.error("DELETE /categories/:categoryId error:", err);

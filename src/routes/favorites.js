@@ -15,6 +15,7 @@ const { Favorites, Books } = models;
  *     tags: [Favorites]
  *     summary: 찜(즐겨찾기) 추가
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -24,25 +25,15 @@ const { Favorites, Books } = models;
  *             type: object
  *             required: [bookId]
  *             properties:
- *               bookId:
- *                 type: integer
- *                 example: 1
+ *               bookId: { type: integer, example: 1 }
  *     responses:
- *       201:
- *         description: 생성 성공
- *       400:
- *         description: bookId must be positive integer
- *       404:
- *         description: book not found
- *       409:
- *         description: already favorited
- *       500:
- *         description: failed to add favorite
+ *       201: { description: Created }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       409: { description: STATE_CONFLICT }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// POST /favorites
-// body: { bookId }
-// ----------------------------
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
   const bookId = parseInt(req.body?.bookId, 10);
@@ -90,6 +81,7 @@ router.post("/", requireAuth, async (req, res) => {
  *     tags: [Favorites]
  *     summary: 내 찜 목록 조회 (페이지네이션)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
@@ -99,13 +91,9 @@ router.post("/", requireAuth, async (req, res) => {
  *         name: size
  *         schema: { type: integer, default: 20 }
  *     responses:
- *       200:
- *         description: 성공
- *       500:
- *         description: failed to list favorites
- */
-/**
- * GET /favorites?page=1&size=10
+ *       200: { description: OK }
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -154,6 +142,7 @@ router.get("/", requireAuth, async (req, res) => {
  *     tags: [Favorites]
  *     summary: 찜 단건 조회 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -161,17 +150,12 @@ router.get("/", requireAuth, async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: id must be positive integer
- *       404:
- *         description: favorite not found
- *       500:
- *         description: failed to get favorite
- */
-/**
- * GET /favorites/:id (ADMIN)
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const favoriteId = parseInt(req.params.id, 10);
@@ -230,6 +214,7 @@ router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *     tags: [Favorites]
  *     summary: 내 찜 삭제
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -237,17 +222,11 @@ router.get("/:id", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       400:
- *         description: favoriteId must be positive integer
- *       404:
- *         description: favorite not found
- *       500:
- *         description: failed to delete favorite
- */
-/**
- * DELETE /favorites/:favoriteId
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.delete("/:favoriteId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;

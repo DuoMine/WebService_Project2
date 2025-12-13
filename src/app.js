@@ -45,7 +45,16 @@ export async function createApp() {
   app.use(express.json({ limit: "1mb" }));
   app.use(globalLimiter);
 
-  // Health Check
+  /**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     security: []   # 🔹 인증 없음
+ *     responses:
+ *       200:
+ *         description: OK
+ */
   app.get("/health", (req, res) => {
     res.json({
       status: "OK",

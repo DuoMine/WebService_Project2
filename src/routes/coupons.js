@@ -82,13 +82,6 @@ function validateAssignBody(body) {
  * tags:
  *   - name: Coupons
  *     description: 쿠폰/유저쿠폰 관리 API
- *
- * components:
- *   securitySchemes:
- *     cookieAuth:
- *       type: apiKey
- *       in: cookie
- *       name: access_token
  */
 
 /**
@@ -98,6 +91,7 @@ function validateAssignBody(body) {
  *     tags: [Coupons]
  *     summary: 쿠폰 생성 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -107,33 +101,18 @@ function validateAssignBody(body) {
  *             type: object
  *             required: [discount_rate, start_at, end_at]
  *             properties:
- *               name:
- *                 type: string
- *                 nullable: true
- *                 example: 겨울 10% 할인
- *               discount_rate:
- *                 type: integer
- *                 example: 10
- *               start_at:
- *                 type: string
- *                 format: date-time
- *                 example: 2025-12-01T00:00:00.000Z
- *               end_at:
- *                 type: string
- *                 format: date-time
- *                 example: 2025-12-31T23:59:59.000Z
- *               status:
- *                 type: string
- *                 enum: [SCHEDULED, ACTIVE, PAUSED, ENDED]
- *                 example: SCHEDULED
+ *               name: { type: string, nullable: true, example: "겨울 10% 할인" }
+ *               discount_rate: { type: integer, example: 10 }
+ *               start_at: { type: string, format: date-time, example: "2025-12-01T00:00:00.000Z" }
+ *               end_at: { type: string, format: date-time, example: "2025-12-31T23:59:59.000Z" }
+ *               status: { type: string, enum: [SCHEDULED, ACTIVE, PAUSED, ENDED], example: SCHEDULED }
  *     responses:
- *       201: { description: 생성 성공 }
- *       400: { description: BAD_REQUEST }
+ *       201: { description: Created }
+ *       400: { description: VALIDATION_FAILED }
  *       401: { description: UNAUTHORIZED }
  *       403: { description: FORBIDDEN }
- *       500: { description: failed to create coupon }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// 쿠폰 생성 (ADMIN)
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const errors = validateCouponCreate(req.body);
   if (Object.keys(errors).length) {
@@ -179,6 +158,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *     tags: [Coupons]
  *     summary: 쿠폰 목록 조회 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
@@ -198,12 +178,11 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         schema: { type: string }
  *         example: created_at,DESC
  *     responses:
- *       200: { description: 조회 성공 }
+ *       200: { description: OK }
  *       401: { description: UNAUTHORIZED }
  *       403: { description: FORBIDDEN }
- *       500: { description: failed to list coupons }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// 쿠폰 리스트 (ADMIN)
 router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { page, size, offset } = parsePagination(req.query);
 
@@ -254,6 +233,7 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *     tags: [Coupons]
  *     summary: 유저에게 쿠폰 지급 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -271,16 +251,15 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *               user_ids:
  *                 type: array
  *                 items: { type: integer }
- *                 example: [1,2,3]
+ *                 example: [1, 2, 3]
  *     responses:
- *       200: { description: 지급 결과 반환 }
- *       400: { description: BAD_REQUEST }
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
  *       401: { description: UNAUTHORIZED }
  *       403: { description: FORBIDDEN }
- *       404: { description: coupon not found }
- *       500: { description: failed to assign coupon }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ✅ 유저 쿠폰 할당 (ADMIN) - 경로 수정!
 router.post("/:couponId/assign", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const couponId = parseId(req.params.couponId);
   if (!couponId) return sendError(res, 400, "BAD_REQUEST", "invalid couponId");
@@ -344,6 +323,7 @@ router.post("/:couponId/assign", requireAuth, requireRole("ADMIN"), async (req, 
  *     tags: [Coupons]
  *     summary: 유저의 쿠폰 목록 조회 (본인 또는 ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -354,16 +334,22 @@ router.post("/:couponId/assign", requireAuth, requireRole("ADMIN"), async (req, 
  *         name: show
  *         schema: { type: string, enum: [issued, all], default: issued }
  *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 20 }
+ *       - in: query
  *         name: sort
  *         schema: { type: string }
  *         example: issued_at,DESC
  *     responses:
- *       200: { description: 조회 성공 }
- *       403: { description: cannot view other user's coupons }
- *       404: { description: invalid userId }
- *       500: { description: failed to list user coupons }
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// 유저 쿠폰 확인 (본인 또는 ADMIN)
 router.get("/:userId", requireAuth, async (req, res) => {
   const userId = parseId(req.params.userId);
   const { page, size, offset } = parsePagination(req.query);
@@ -382,7 +368,7 @@ router.get("/:userId", requireAuth, async (req, res) => {
   const { order, sort } = parseSort(req.query.sort, USER_COUPON_SORT_MAP, "issued_at,DESC");
 
   try {
-    const rows = await UserCoupons.findAll({
+    const { rows, count } = await UserCoupons.findAll({
       where,
       include: [
         {
@@ -430,14 +416,14 @@ router.get("/:userId", requireAuth, async (req, res) => {
  *     tags: [Coupons]
  *     summary: 쿠폰 상태 일괄 갱신 (ADMIN) - SCHEDULED->ACTIVE, ACTIVE->ENDED
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     responses:
- *       200: { description: 갱신 결과 }
+ *       200: { description: OK }
  *       401: { description: UNAUTHORIZED }
  *       403: { description: FORBIDDEN }
- *       500: { description: failed to refresh coupons status }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// 쿠폰 상태 갱신 (ADMIN)
 router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const now = new Date();
 
@@ -508,6 +494,7 @@ router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => 
  *     tags: [Coupons]
  *     summary: 쿠폰 삭제 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -515,12 +502,14 @@ router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => 
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200: { description: 삭제 성공 }
- *       404: { description: coupon not found }
- *       409: { description: coupon already used in orders; cannot delete }
- *       500: { description: failed to delete coupon }
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       409: { description: STATE_CONFLICT }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// 쿠폰 삭제 (ADMIN)
 router.delete("/:couponId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const couponId = parseId(req.params.couponId);
   if (!couponId) return sendError(res, 400, "BAD_REQUEST", "invalid couponId");

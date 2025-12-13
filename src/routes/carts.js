@@ -29,6 +29,7 @@ function getUserId(req) {
  *       - is_active=1 인 카트 아이템만 조회
  *       - 페이지네이션 + 정렬 지원
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
@@ -42,10 +43,9 @@ function getUserId(req) {
  *         description: "허용: created_at, quantity, book_price (예: created_at,DESC)"
  *         schema: { type: string }
  *     responses:
- *       200:
- *         description: 장바구니 조회 성공
- *       401:
- *         description: 인증 필요
+ *       200: { description: OK }
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/me", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -103,6 +103,7 @@ router.get("/me", requireAuth, async (req, res) => {
  *       - 이미 담긴 도서는 quantity 증가
  *       - 없으면 새 cart_item 생성
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -110,20 +111,16 @@ router.get("/me", requireAuth, async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [bookId]
  *             properties:
- *               bookId:
- *                 type: integer
- *                 example: 1
- *               quantity:
- *                 type: integer
- *                 example: 2
+ *               bookId: { type: integer, example: 1 }
+ *               quantity: { type: integer, example: 2 }
  *     responses:
- *       200:
- *         description: 추가 성공
- *       400:
- *         description: validation failed
- *       404:
- *         description: book not found
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -191,17 +188,25 @@ router.post("/", requireAuth, async (req, res) => {
  *     tags: [Carts]
  *     summary: 특정 유저 장바구니 조회 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
  *         required: true
  *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: size
+ *         schema: { type: integer, default: 10 }
  *     responses:
- *       200:
- *         description: 조회 성공
- *       400:
- *         description: invalid userId
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
@@ -260,6 +265,7 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *     tags: [Carts]
  *     summary: 장바구니 수량 변경
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -272,15 +278,15 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [quantity]
  *             properties:
- *               quantity:
- *                 type: integer
- *                 example: 3
+ *               quantity: { type: integer, example: 3 }
  *     responses:
- *       200:
- *         description: 수정 성공
- *       404:
- *         description: cart item not found
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.put("/:cartItemId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -321,6 +327,7 @@ router.put("/:cartItemId", requireAuth, async (req, res) => {
  *     tags: [Carts]
  *     summary: 장바구니 항목 삭제 (soft delete)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -328,10 +335,11 @@ router.put("/:cartItemId", requireAuth, async (req, res) => {
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 삭제 성공
- *       404:
- *         description: cart item not found
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.delete("/:cartItemId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -363,10 +371,12 @@ router.delete("/:cartItemId", requireAuth, async (req, res) => {
  *     tags: [Carts]
  *     summary: 내 장바구니 비우기
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     responses:
- *       200:
- *         description: 장바구니 초기화 성공
+ *       200: { description: OK }
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.delete("/", requireAuth, async (req, res) => {
   const userId = getUserId(req);

@@ -85,7 +85,8 @@ function toSellerRow(s) {
  *                 nullable: true
  *               commissionRate:
  *                 type: number
- *                 example: 10
+ *                 minimum: 0
+ *                 maximum: 90
  *     responses:
  *       201:
  *         description: 판매자 생성 성공
@@ -100,9 +101,6 @@ function toSellerRow(s) {
  *       500:
  *         description: failed to create seller
  */
-// ----------------------------
-// POST /sellers (ADMIN)
-// ----------------------------
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const {
     businessName,
@@ -117,14 +115,41 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   } = req.body ?? {};
 
   const errors = {};
-  if (!businessName || typeof businessName !== "string" || !businessName.trim()) {
+
+  // required
+  if (typeof businessName !== "string" || !businessName.trim()) {
     errors.businessName = "businessName is required";
   }
-  if (!businessNumber || typeof businessNumber !== "string" || !businessNumber.trim()) {
+  if (typeof businessNumber !== "string" || !businessNumber.trim()) {
     errors.businessNumber = "businessNumber is required";
   }
-  if (!email || typeof email !== "string" || !email.trim()) {
+  if (typeof email !== "string" || !email.trim()) {
     errors.email = "email is required";
+  }
+
+  // optional string/null
+  if (phoneNumber !== undefined && phoneNumber !== null && typeof phoneNumber !== "string") {
+    errors.phoneNumber = "phoneNumber must be string or null";
+  }
+  if (address !== undefined && address !== null && typeof address !== "string") {
+    errors.address = "address must be string or null";
+  }
+  if (payoutBank !== undefined && payoutBank !== null && typeof payoutBank !== "string") {
+    errors.payoutBank = "payoutBank must be string or null";
+  }
+  if (payoutAccount !== undefined && payoutAccount !== null && typeof payoutAccount !== "string") {
+    errors.payoutAccount = "payoutAccount must be string or null";
+  }
+  if (payoutHolder !== undefined && payoutHolder !== null && typeof payoutHolder !== "string") {
+    errors.payoutHolder = "payoutHolder must be string or null";
+  }
+
+  // ✅ commissionRate: optional number, 0~90 (PUT와 동일)
+  if (commissionRate !== undefined && commissionRate !== null) {
+    const r = Number(commissionRate);
+    if (!Number.isFinite(r) || r < 0 || r > 90) {
+      errors.commissionRate = "commissionRate must be between 0 and 90";
+    }
   }
 
   if (Object.keys(errors).length > 0) {
@@ -135,10 +160,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
     const dup = await Sellers.findOne({
       where: {
         deleted_at: null,
-        [Op.or]: [
-          { business_number: businessNumber.trim() },
-          { email: email.trim() },
-        ],
+        [Op.or]: [{ business_number: businessNumber.trim() }, { email: email.trim() }],
       },
     });
     if (dup) {
@@ -163,17 +185,17 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 
     return sendOk(res, { sellerId: seller.id }, 201);
   } catch (err) {
-  if (err?.name === "SequelizeUniqueConstraintError") {
-    const details = {};
-    for (const e of err.errors ?? []) {
-      if (e.path) details[e.path] = "duplicate";
+    if (err?.name === "SequelizeUniqueConstraintError") {
+      const details = {};
+      for (const e of err.errors ?? []) {
+        if (e.path) details[e.path] = "duplicate";
+      }
+      return sendError(res, 409, "DUPLICATE_RESOURCE", "seller already exists", details);
     }
-    return sendError(res, 409, "DUPLICATE_RESOURCE", "seller already exists", details);
-  }
 
-  console.error("POST /sellers error:", err);
-  return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create seller");
-}
+    console.error("POST /sellers error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to create seller");
+  }
 });
 
 /**
@@ -357,7 +379,7 @@ router.put("/:sellerId", requireAuth, requireRole("ADMIN"), async (req, res) => 
   if (businessNumber !== undefined) errors.businessNumber = "businessNumber cannot be updated";
   if (email !== undefined) errors.email = "email cannot be updated";
 
-  if (businessName !== undefined && (!businessName || typeof businessName !== "string")) {
+  if (businessName !== undefined && (typeof businessName !== "string" || !businessName.trim())) {
     errors.businessName = "businessName must be non-empty string";
   }
 

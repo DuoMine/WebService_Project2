@@ -15,14 +15,14 @@ function parseId(v) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// ✅ 주문 목록 정렬 허용 필드
+// 주문 목록 정렬 허용 필드
 const orderSortMap = {
   created_at: "created_at",
   total_amount: "total_amount",
   status: "status",
 };
 
-// ✅ 주문 상세의 items 정렬 허용 필드
+// 주문 상세의 items 정렬 허용 필드
 const itemSortMap = {
   id: "id",
   book_id: "book_id",
@@ -31,19 +31,18 @@ const itemSortMap = {
   total_amount: "total_amount",
   created_at: "created_at",
 };
-
-// NOTE: 주문은 cart_items 스냅샷 기반, 결제 개념 없음
-
 /**
  * @openapi
  * /orders:
  *   post:
  *     tags: [Orders]
- *     summary: 주문 생성 (내 카트 기준, 쿠폰 선택 적용 가능)
+ *     summary: 주문 생성 (내 카트 기준)
  *     description: |
  *       - 결제 개념 없음. 생성 시 status=CREATED.
- *       - 카트 활성 아이템(is_active=1)을 스냅샷으로 order_items 생성 후, 카트는 비활성화 처리.
- *       - coupon_id를 주면 (UserCoupons ISSUED + Coupons ACTIVE + 기간 유효)인 경우만 적용.
+ *       - 내 카트 활성 아이템(is_active=1)을 스냅샷으로 order_items에 생성한다.
+ *       - 주문 생성 후 내 카트 활성 아이템은 비활성화(is_active=0) 처리한다.
+ *       - coupon_id를 주면 (UserCoupons: ISSUED) + (Coupons: ACTIVE) + (기간 유효) 일 때만 적용한다.
+ *       - 적용 성공 시 user_coupons는 USED로 변경되고 order_coupons에 사용 기록이 남는다.
  *     security:
  *       - cookieAuth: []
  *     requestBody:
@@ -72,14 +71,19 @@ const itemSortMap = {
  *                 itemsCount: { type: integer, example: 2 }
  *                 couponId: { type: integer, nullable: true, example: 1 }
  *       400:
- *         description: cart is empty / some books not found / invalid or unusable coupon / invalid coupon_id
- *       500:
- *         description: failed to create order
+ *         description: |
+ *           BAD_REQUEST
+ *           - invalid coupon_id
+ *           - cart is empty
+ *           - some books not found
+ *           - invalid or unusable coupon
+ *       401: { description: UNAUTHORIZED }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.post("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
 
-  // ✅ 쿠폰 id (없으면 null)
+  // 쿠폰 id (없으면 null)
   const couponIdRaw = req.body?.coupon_id;
   const couponId = couponIdRaw ? parseInt(couponIdRaw, 10) : null;
   if (couponIdRaw !== undefined && (!Number.isFinite(couponId) || couponId <= 0)) {
@@ -148,7 +152,7 @@ router.post("/", requireAuth, async (req, res) => {
         };
       });
 
-      // ✅ 3.5) 쿠폰 검증 + 할인 계산
+      // 3.5) 쿠폰 검증 + 할인 계산
       let couponDiscount = 0;
       let usedUserCouponId = null;
       let appliedCouponId = null;
@@ -216,13 +220,14 @@ router.post("/", requireAuth, async (req, res) => {
         { transaction: t }
       );
 
-      // ✅ 5.5) 쿠폰 사용 기록
+      // 5.5) 쿠폰 사용 기록
       if (appliedCouponId) {
         await OrderCoupons.create(
           {
             order_id: createdOrder.id,
             coupon_id: appliedCouponId,
             amount: couponDiscount,
+            user_coupon_id: usedUserCouponId,
             created_at: new Date(),
           },
           { transaction: t }
@@ -278,7 +283,9 @@ router.post("/", requireAuth, async (req, res) => {
  *   get:
  *     tags: [Orders]
  *     summary: 내 주문 상세 조회 (items 포함)
- *     description: "items 정렬은 query sort로 적용 (예: sort=id,ASC)."
+ *     description: |
+ *       - 내 주문 1건을 조회하고 주문 아이템(items)을 함께 반환한다.
+ *       - items 정렬은 query sort로 적용한다. (예: sort=id,ASC)
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -286,17 +293,17 @@ router.post("/", requireAuth, async (req, res) => {
  *         name: id
  *         required: true
  *         schema: { type: integer }
+ *         description: 주문 ID
  *       - in: query
  *         name: sort
- *         description: "items 정렬 (허용: id, book_id, quantity, unit_price, total_amount, created_at)"
  *         schema: { type: string, example: "id,ASC" }
+ *         description: "items 정렬 (허용: id, book_id, quantity, unit_price, total_amount, created_at)"
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: invalid order id
- *       404:
- *         description: order not found
+ *       200: description: 조회 성공
+ *       400: description: BAD_REQUEST (invalid order id)
+ *       401: description: UNAUTHORIZED
+ *       404: description: NOT_FOUND (order not found)
+ *       500: description: INTERNAL_SERVER_ERROR
  */
 router.get("/detail/:id", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -343,6 +350,9 @@ router.get("/detail/:id", requireAuth, async (req, res) => {
  *   get:
  *     tags: [Orders]
  *     summary: 내 주문 목록 조회 (페이지네이션 + 정렬)
+ *     description: |
+ *       - 내 주문 목록을 페이지네이션으로 조회한다.
+ *       - status 필터와 정렬(sort)을 지원한다.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -354,17 +364,16 @@ router.get("/detail/:id", requireAuth, async (req, res) => {
  *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: sort
- *         description: "허용: created_at,total_amount,status (예: created_at,DESC)"
  *         schema: { type: string, example: "created_at,DESC" }
+ *         description: "허용: created_at,total_amount,status"
  *       - in: query
  *         name: status
- *         description: "CREATED | CANCELLED"
  *         schema: { type: string, example: "CREATED" }
+ *         description: "CREATED | CANCELLED"
  *     responses:
- *       200:
- *         description: 성공
- *       500:
- *         description: failed to list orders
+ *       200: description: 조회 성공
+ *       401: description: UNAUTHORIZED
+ *       500: description: INTERNAL_SERVER_ERROR
  */
 router.get("/", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
@@ -411,6 +420,9 @@ router.get("/", requireAuth, async (req, res) => {
  *   get:
  *     tags: [Orders]
  *     summary: 특정 유저 주문 목록 조회 (ADMIN)
+ *     description: |
+ *       - 관리자 권한으로 특정 유저의 주문 목록을 조회한다.
+ *       - 페이지네이션/정렬/status 필터 지원.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -418,6 +430,7 @@ router.get("/", requireAuth, async (req, res) => {
  *         name: userId
  *         required: true
  *         schema: { type: integer }
+ *         description: 대상 유저 ID
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
@@ -426,19 +439,18 @@ router.get("/", requireAuth, async (req, res) => {
  *         schema: { type: integer, default: 20 }
  *       - in: query
  *         name: sort
- *         description: "허용: created_at,total_amount,status (예: created_at,DESC)"
  *         schema: { type: string, example: "created_at,DESC" }
+ *         description: "허용: created_at,total_amount,status"
  *       - in: query
  *         name: status
- *         description: "CREATED | CANCELLED"
  *         schema: { type: string, example: "CREATED" }
+ *         description: "CREATED | CANCELLED"
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: invalid userId
- *       500:
- *         description: failed to list orders
+ *       200: description: 조회 성공
+ *       400: description: BAD_REQUEST (invalid userId)
+ *       401: description: UNAUTHORIZED
+ *       403: description: FORBIDDEN
+ *       500: description: INTERNAL_SERVER_ERROR
  */
 router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const targetUserId = parseId(req.params.userId);
@@ -487,6 +499,9 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *   delete:
  *     tags: [Orders]
  *     summary: 주문 취소 (내 주문, CREATED만 가능)
+ *     description: |
+ *       - 내 주문만 취소 가능.
+ *       - status가 CREATED인 주문만 CANCELLED로 변경 가능.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -494,15 +509,21 @@ router.get("/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         name: orderId
  *         required: true
  *         schema: { type: integer }
+ *         description: 주문 ID
  *     responses:
  *       200:
  *         description: 취소 성공
  *       400:
- *         description: only CREATED orders can be cancelled / invalid orderId
+ *         description: |
+ *           BAD_REQUEST
+ *           - invalid orderId
+ *           - only CREATED orders can be cancelled
+ *       401:
+ *         description: UNAUTHORIZED
  *       404:
- *         description: order not found
+ *         description: NOT_FOUND (order not found)
  *       500:
- *         description: failed to cancel order
+ *         description: INTERNAL_SERVER_ERROR
  */
 router.delete("/:orderId", requireAuth, async (req, res) => {
   const userId = req.auth.userId;

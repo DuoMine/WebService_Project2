@@ -26,6 +26,7 @@ const BOOK_SORT_FIELDS = {
  *     tags: [Books]
  *     summary: 도서 등록 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
@@ -52,17 +53,18 @@ const BOOK_SORT_FIELDS = {
  *                 example: [3, 4]
  *     responses:
  *       201:
- *         description: 생성 성공
+ *         description: Created
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
  *                 bookId: { type: integer, example: 10 }
- *       400:
- *         description: validation failed
- *       409:
- *         description: duplicate resource (isbn)
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       409: { description: DUPLICATE_RESOURCE }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const {
@@ -158,7 +160,8 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  * /books:
  *   get:
  *     tags: [Books]
- *     summary: 도서 목록 조회
+ *     summary: 도서 목록 조회 (공개)
+ *     security: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -181,42 +184,9 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *         description: "title/publisher LIKE 검색"
  *         schema: { type: string }
  *     responses:
- *       200:
- *         description: 성공
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 content:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id: { type: integer }
- *                       title: { type: string }
- *                       price: { type: integer }
- *                       seller:
- *                         type: object
- *                         nullable: true
- *                         properties:
- *                           id: { type: integer }
- *                           businessName: { type: string }
- *                           email: { type: string }
- *                       authors:
- *                         type: array
- *                         items:
- *                           type: object
- *                           properties:
- *                             id: { type: integer }
- *                             penName: { type: string }
- *                 page: { type: integer }
- *                 size: { type: integer }
- *                 totalElements: { type: integer }
- *                 totalPages: { type: integer }
- *                 sort: { type: string }
- *       400:
- *         description: invalid query
+ *       200: { description: OK }
+ *       400: { description: INVALID_QUERY_PARAM }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/", async (req, res) => {
   try {
@@ -320,19 +290,18 @@ router.get("/", async (req, res) => {
  * /books/{bookId}:
  *   get:
  *     tags: [Books]
- *     summary: 도서 상세 조회
+ *     summary: 도서 상세 조회 (공개)
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: bookId
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: invalid bookId
- *       404:
- *         description: book not found
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.get("/:bookId", async (req, res) => {
   try {
@@ -402,6 +371,7 @@ router.get("/:bookId", async (req, res) => {
  *     tags: [Books]
  *     summary: 도서 수정 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -419,12 +389,12 @@ router.get("/:bookId", async (req, res) => {
  *               summary: { type: string, example: "요약 수정" }
  *               sellerId: { type: integer, example: 2 }
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: validation failed
- *       404:
- *         description: book not found
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   try {
@@ -483,6 +453,7 @@ router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *     tags: [Books]
  *     summary: 도서 카테고리 교체 (ADMIN)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -502,12 +473,12 @@ router.put("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *                 items: { type: integer }
  *                 example: [1, 2, 3]
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: validation failed
- *       404:
- *         description: book not found
+ *       200: { description: OK }
+ *       400: { description: VALIDATION_FAILED }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const bookId = parseInt(req.params.bookId, 10);
@@ -578,6 +549,7 @@ router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req,
  *     tags: [Books]
  *     summary: 도서 삭제 (ADMIN, Soft Delete)
  *     security:
+ *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: path
@@ -585,12 +557,12 @@ router.put("/:bookId/categories", requireAuth, requireRole("ADMIN"), async (req,
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200:
- *         description: 성공
- *       400:
- *         description: invalid bookId
- *       404:
- *         description: book not found
+ *       200: { description: OK }
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: UNAUTHORIZED }
+ *       403: { description: FORBIDDEN }
+ *       404: { description: RESOURCE_NOT_FOUND }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
 router.delete("/:bookId", requireAuth, requireRole("ADMIN"), async (req, res) => {
   try {

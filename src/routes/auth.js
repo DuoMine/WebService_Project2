@@ -108,13 +108,6 @@ function validateRegisterBody(body) {
  * tags:
  *   - name: Auth
  *     description: 인증/토큰 API
- *
- * components:
- *   securitySchemes:
- *     cookieAuth:
- *       type: apiKey
- *       in: cookie
- *       name: access_token
  */
 
 /**
@@ -123,6 +116,7 @@ function validateRegisterBody(body) {
  *   post:
  *     tags: [Auth]
  *     summary: 회원가입
+ *     security: []   # 🔓 인증 불필요
  *     requestBody:
  *       required: true
  *       content:
@@ -134,19 +128,16 @@ function validateRegisterBody(body) {
  *               email: { type: string, example: user1@example.com }
  *               password: { type: string, example: "password1234" }
  *               name: { type: string, example: "사용자1" }
- *               phone_number: { type: string, nullable: true, example: "01012345678" }
+ *               phone_number: { type: string, nullable: true }
  *               birth_year: { type: integer, example: 2000 }
- *               gender: { type: string, enum: [MALE, FEMALE, UNKNOWN], example: UNKNOWN }
+ *               gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
  *               region_code: { type: string, example: "KR-11" }
  *     responses:
- *       201: { description: created }
+ *       201: { description: Created }
  *       400: { description: VALIDATION_FAILED }
  *       409: { description: DUPLICATE_RESOURCE }
- *       500: { description: failed to register user }
+ *       500: { description: INTERNAL_SERVER_ERROR }
  */
-// ----------------------------
-// POST /auth/register
-// ----------------------------
 router.post("/register", async (req, res) => {
   const { ok, value, errors } = validateRegisterBody(req.body);
   if (!ok) {
@@ -231,39 +222,25 @@ function validateLoginBody(body) {
 
 /**
  * @openapi
- * /auth/login:
+ * /auth/refresh:
  *   post:
  *     tags: [Auth]
- *     summary: 로그인 (쿠키 세팅 + 토큰 JSON 반환)
+ *     summary: 액세스 토큰 재발급
+ *     security: []   # 🔓 access token 불필요
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password]
  *             properties:
- *               email: { type: string, example: user1@example.com }
- *               password: { type: string, example: "password1234" }
+ *               refresh_token: { type: string }
  *     responses:
  *       200:
- *         description: ok
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token_type: { type: string, example: "Bearer" }
- *                 access_token: { type: string }
- *                 refresh_token: { type: string }
- *                 expires_in: { type: integer, example: 900 }
- *       400: { description: VALIDATION_FAILED }
- *       401: { description: invalid email or password }
- *       500: { description: failed to login }
+ *         description: OK
+ *       400: { description: BAD_REQUEST }
+ *       401: { description: TOKEN_EXPIRED }
  */
-// ----------------------------
-// POST /auth/login
-// ----------------------------
 router.post("/login", async (req, res) => {
   const { ok, value, errors } = validateLoginBody(req.body);
   if (!ok) {
@@ -321,6 +298,7 @@ router.post("/login", async (req, res) => {
  *   post:
  *     tags: [Auth]
  *     summary: 액세스 토큰 재발급 (refresh_token은 쿠키 또는 body)
+ *     security: []
  *     requestBody:
  *       required: false
  *       content:
@@ -343,9 +321,6 @@ router.post("/login", async (req, res) => {
  *       400: { description: refresh_token is required }
  *       401: { description: invalid or expired refresh token }
  */
-// ----------------------------
-// POST /auth/refresh
-// ----------------------------
 router.post("/refresh", async (req, res) => {
   const fromCookie = req.cookies?.[REFRESH_COOKIE_NAME];
   const fromBody = req.body?.refresh_token;
@@ -402,12 +377,10 @@ router.post("/refresh", async (req, res) => {
  *   post:
  *     tags: [Auth]
  *     summary: 로그아웃 (refresh revoke + 쿠키 삭제)
+ *     security: []   # access token 없어도 허용
  *     responses:
- *       204: { description: no content }
+ *       204: { description: No Content }
  */
-// ----------------------------
-// POST /auth/logout
-// ----------------------------
 router.post("/logout", async (req, res) => {
   const fromCookie = req.cookies?.[REFRESH_COOKIE_NAME];
 
