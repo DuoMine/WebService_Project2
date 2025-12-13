@@ -5,6 +5,7 @@ import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
 import { parseSort } from "../utils/sort.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
 
@@ -122,9 +123,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
 // ---------------------------------------------------------------------
 router.get("/", async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
-    const size = Math.min(50, Math.max(1, parseInt(req.query.size ?? "10", 10)));
-    const offset = (page - 1) * size;
+    const { page, size, offset } = parsePagination(req.query);
 
     const { categoryId, query } = req.query;
     const sellerIdRaw = req.query.sellerId;

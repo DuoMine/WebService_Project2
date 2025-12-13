@@ -23,11 +23,7 @@ function getUserId(req) {
 // ----------------------------
 router.get( "/me", requireAuth, async (req, res) => {
     const userId = req.user.id;
-
-    const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
-    const size = Math.min(50, Math.max(1, parseInt(req.query.size ?? "10", 10)));
-    const offset = (page - 1) * size;
-
+    const { page, size, offset } = parsePagination(req.query);
     const { order, sort } = parseSort(
       req.query.sort,
       CART_SORT_FIELDS,
@@ -38,7 +34,7 @@ router.get( "/me", requireAuth, async (req, res) => {
       const { rows, count } = await CartItems.findAndCountAll({
         where: {
           cart_user_id: userId,
-          is_active: true,
+          is_active: 1,
         },
         include: [
           {
@@ -55,12 +51,12 @@ router.get( "/me", requireAuth, async (req, res) => {
       const content = rows.map((item) => ({
         cartItemId: item.id,
         book: {
-          id: item.Book.id,
-          title: item.Book.title,
-          price: item.Book.price,
+          id: item.book.id,
+          title: item.book.title,
+          price: item.book.price,
         },
         quantity: item.quantity,
-        totalPrice: item.quantity * item.Book.price,
+        totalPrice: item.quantity * item.book.price,
         addedAt: item.created_at,
       }));
 
@@ -145,7 +141,7 @@ router.post( "", requireAuth, async (req, res) => {
             cart_user_id: userId,
             book_id: bid,
             quantity: qty,
-            is_active: true,
+            is_active: 1,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -202,7 +198,7 @@ router.get( "/:userId", requireAuth, requireRole("ADMIN"), async (req, res) => {
       const { rows, count } = await CartItems.findAndCountAll({
         where: {
           cart_user_id: userId,
-          is_active: true,
+          is_active: 1,
         },
         include: [
           {
@@ -270,7 +266,7 @@ router.put("/:cartItemId", requireAuth, async (req, res) => {
       where: {
         id: cartItemId,
         cart_user_id: userId,
-        is_active: true,
+        is_active: 1,
       },
     });
 
@@ -301,7 +297,7 @@ router.delete("/:cartItemId", requireAuth, async (req, res) => {
       where: {
         id: cartItemId,
         cart_user_id: userId,
-        is_active: true,
+        is_active: 1,
       },
     });
 
@@ -327,8 +323,8 @@ router.delete("/", requireAuth, async (req, res) => {
 
   try {
     await CartItems.update(
-      { is_active: false, updated_at: new Date() },
-      { where: { cart_user_id: userId, is_active: true } }
+      { is_active: 0, updated_at: new Date() },
+      { where: { cart_user_id: userId, is_active: 1 } }
     );
 
     return sendOk(res, {});

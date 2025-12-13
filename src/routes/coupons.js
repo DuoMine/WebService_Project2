@@ -5,6 +5,7 @@ import { models, sequelize } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
 import { parseSort } from "../utils/sort.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
 const { Coupons, UserCoupons, Users, OrderCoupons } = models;
@@ -12,13 +13,6 @@ const { Coupons, UserCoupons, Users, OrderCoupons } = models;
 function parseId(v) {
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function parsePagination(query) {
-  const page = Math.max(1, parseInt(query.page ?? "1", 10));
-  const size = Math.min(100, Math.max(1, parseInt(query.size ?? "20", 10)));
-  const offset = (page - 1) * size;
-  return { page, size, offset };
 }
 
 const COUPON_SORT_MAP = {

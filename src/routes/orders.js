@@ -5,16 +5,11 @@ import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
 import { parseSort } from "../utils/sort.js";
 import { Op } from "sequelize";
+import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
 const { Orders, OrderItems, Books, sequelize, CartItems, UserCoupons, Coupons, OrderCoupons } = models;
 
-function parsePagination(query) {
-  const page = Math.max(1, parseInt(query.page ?? "1", 10));
-  const size = Math.min(50, Math.max(1, parseInt(query.size ?? "10", 10)));
-  const offset = (page - 1) * size;
-  return { page, size, offset };
-}
 
 function parseId(v) {
   const n = Number(v);

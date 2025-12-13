@@ -5,19 +5,14 @@ import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
 import { parseSort } from "../utils/sort.js";
+import { parsePagination } from "../utils/pagination.js";
+
 const router = Router();
 const { Authors } = models;
 
 // ----------------------------
 // helpers
 // ----------------------------
-
-function parsePagination(query) {
-  const page = Math.max(0, parseInt(query.page ?? "1", 10)); // ✅ 0-based
-  const size = Math.min(50, Math.max(1, parseInt(query.size ?? "20", 10)));
-  const offset = (page-1) * size;
-  return { page, size, offset };
-}
 
 const AUTHOR_SORT_MAP = {
   id: "id",

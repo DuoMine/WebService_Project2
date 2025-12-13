@@ -3,16 +3,11 @@ import { Router } from "express";
 import { models } from "../config/db.js";
 import { requireAuth, requireRole } from "../middlewares/requireAuth.js";
 import { sendError, sendOk } from "../utils/http.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const router = Router();
 const { Favorites, Books } = models;
 
-function parsePagination(query) {
-  const page = Math.max(1, parseInt(query.page ?? "1", 10));
-  const size = Math.min(50, Math.max(1, parseInt(query.size ?? "10", 10)));
-  const offset = (page - 1) * size;
-  return { page, size, offset };
-}
 // ----------------------------
 // POST /favorites
 // body: { bookId }

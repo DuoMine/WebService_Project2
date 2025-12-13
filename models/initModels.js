@@ -241,7 +241,7 @@ export function initModels(sequelize) {
       is_active: {
         type: DataTypes.TINYINT(1),
         allowNull: false,
-        defaultValue: true,
+        defaultValue: 1,
       },
     },
     {
@@ -668,6 +668,7 @@ export function initModels(sequelize) {
       },
       is_active: {
         type: DataTypes.TINYINT(1),
+        default: 1,
         allowNull: false,
       },
     },
