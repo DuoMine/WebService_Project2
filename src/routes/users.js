@@ -552,8 +552,45 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  *           schema:
  *             type: object
  *             required: [email, password, name, birth_year, region_code]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user1@example.com"
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: "P@ssw0rd1234"
+ *               name:
+ *                 type: string
+ *                 example: "사용자1"
+ *               phone_number:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "01012345678"
+ *               birth_year:
+ *                 type: integer
+ *                 minimum: 1900
+ *                 maximum: 2100
+ *                 example: 2000
+ *               gender:
+ *                 type: string
+ *                 enum: [MALE, FEMALE, UNKNOWN]
+ *                 example: "UNKNOWN"
+ *               region_code:
+ *                 type: string
+ *                 example: "KR-11"
+ *               role:
+ *                 type: string
+ *                 enum: [USER, ADMIN]
+ *                 example: "USER"
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, DELETED]
+ *                 example: "ACTIVE"
  *     responses:
- *       201: { description: created }
+ *       201:
+ *         description: created
  */
 router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const { ok, value, errors } = validateAdminCreateBody(req.body ?? {});
