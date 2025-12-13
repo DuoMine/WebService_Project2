@@ -311,12 +311,12 @@ router.get("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
  * PATCH /coupons (ADMIN)
  * 기간이 맞고 status가 SCHEDULED인 쿠폰들을 ACTIVE로 일괄 전환
  */
-router.patch("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
+router.patch("/refresh", requireAuth, requireRole("ADMIN"), async (req, res) => {
   const now = new Date();
 
   try {
     const result = await (sequelize ?? Coupons.sequelize).transaction(async (t) => {
-      // (선택) 어떤 것들이 바뀌는지 id 목록도 주고 싶으면 먼저 조회
+      // 1) SCHEDULED -> ACTIVE 대상
       const toActivate = await Coupons.findAll({
         where: {
           status: "SCHEDULED",
@@ -327,32 +327,53 @@ router.patch("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
+      const activateIds = toActivate.map((c) => c.id);
 
-      if (toActivate.length === 0) {
-        return { updated: 0, ids: [] };
+      // 2) ACTIVE -> ENDED 대상
+      const toEnd = await Coupons.findAll({
+        where: {
+          status: "ACTIVE",
+          end_at: { [Op.lt]: now },
+        },
+        attributes: ["id"],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      const endIds = toEnd.map((c) => c.id);
+
+      // 3) 업데이트
+      let activated = 0;
+      let ended = 0;
+
+      if (activateIds.length > 0) {
+        const [cnt] = await Coupons.update(
+          { status: "ACTIVE", updated_at: now },
+          { where: { id: { [Op.in]: activateIds } }, transaction: t }
+        );
+        activated = cnt;
       }
 
-      const ids = toActivate.map((c) => c.id);
+      if (endIds.length > 0) {
+        const [cnt] = await Coupons.update(
+          { status: "ENDED", updated_at: now },
+          { where: { id: { [Op.in]: endIds } }, transaction: t }
+        );
+        ended = cnt;
+      }
 
-      const [updated] = await Coupons.update(
-        { status: "ACTIVE", updated_at: now },
-        {
-          where: { id: { [Op.in]: ids } },
-          transaction: t,
-        }
-      );
-
-      return { updated, ids };
+      return { activated, ended, activateIds, endIds };
     });
 
     return sendOk(res, {
-      updated: result.updated,
-      ids: result.ids,
+      activated: result.activated,
+      ended: result.ended,
+      activated_ids: result.activateIds,
+      ended_ids: result.endIds,
       executed_at: now,
     });
   } catch (err) {
-    console.error("PATCH /coupons error:", err);
-    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to auto-activate coupons");
+    console.error("PATCH /coupons/refresh error:", err);
+    return sendError(res, 500, "INTERNAL_SERVER_ERROR", "failed to refresh coupons status");
   }
 });
 
