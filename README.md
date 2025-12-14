@@ -26,15 +26,15 @@ PM2로 재시작 후에도 지속 구동
 
 JCloud는 포트 리다이렉션이 적용되어 있어, 외부 포트로 접속합니다.
 
-API Root(Base URL): http://http://113.198.66.68:13117
+API Root(Base URL): http://113.198.66.68:13117
 
-Swagger UI: http://http://113.198.66.68:13117/docs
+Swagger UI: http://113.198.66.68:13117/docs
 
-Health Check: http://http://113.198.66.68:13117/health
+Health Check: http://113.198.66.68:13117/health
 
 헬스체크 예시:
 
-curl http://http://113.198.66.68:13117/health
+curl http://113.198.66.68:13117/health
 
 2) 기술 스택
 
