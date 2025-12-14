@@ -338,7 +338,7 @@ router.delete("/:authorId", requireAuth, requireRole("ADMIN"), async (req, res) 
       );
     }
 
-    await author.destroy(); // ✅ deleted_at 컬럼 없으니 hard delete
+    await author.destroy(); // deleted_at 컬럼 없으니 hard delete
     return sendOk(res, "작가가 삭제되었습니다.");
   } catch (err) {
     console.error("DELETE /authors/:authorId error:", err);

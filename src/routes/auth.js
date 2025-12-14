@@ -116,7 +116,7 @@ function validateRegisterBody(body) {
  *   post:
  *     tags: [Auth]
  *     summary: 회원가입
- *     security: []   # 🔓 인증 불필요
+ *     security: [] 
  *     requestBody:
  *       required: true
  *       content:
@@ -226,6 +226,7 @@ function validateLoginBody(body) {
  *   post:
  *     tags: [Auth]
  *     summary: 로그인
+ *     security: [] 
  *     description: |
  *       - 성공 시 access_token, refresh_token 쿠키 설정
  *     requestBody:
